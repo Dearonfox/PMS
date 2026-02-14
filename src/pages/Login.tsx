@@ -1,21 +1,60 @@
-import { signInWithPopup } from "firebase/auth";
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 import { auth, googleProvider } from "../firebase";
-import "./login.css";
+import "./Login.css";
 
 export default function Login() {
+    const nav = useNavigate();
+    const location = useLocation();
+
+    const notice = (location.state as any)?.notice as string | undefined;
+
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
     const handleGoogleLogin = async () => {
+        setError(null);
+        setBusy(true);
         try {
-            const result = await signInWithPopup(auth, googleProvider);
-            console.log("로그인 성공:", result.user);
+            await signInWithPopup(auth, googleProvider);
+            // 로그인 성공하면 onAuthStateChanged가 Home으로 보내줌
         } catch (err) {
             console.error(err);
-            alert("로그인에 실패했어요. 잠시 후 다시 시도해주세요.");
+            setError("Google 로그인에 실패했어요. 잠시 후 다시 시도해주세요.");
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleEmailLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+
+        if (!email.trim() || !password.trim()) {
+            setError("이메일/비밀번호를 입력해주세요.");
+            return;
+        }
+
+        setBusy(true);
+        try {
+            await signInWithEmailAndPassword(auth, email.trim(), password);
+        } catch (err: any) {
+            console.error(err);
+            const code = err?.code as string | undefined;
+            if (code === "auth/invalid-email") setError("이메일 형식이 올바르지 않아요.");
+            else if (code === "auth/user-not-found") setError("해당 이메일 계정이 없어요.");
+            else if (code === "auth/wrong-password") setError("비밀번호가 올바르지 않아요.");
+            else setError("로그인에 실패했어요. 잠시 후 다시 시도해주세요.");
+        } finally {
+            setBusy(false);
         }
     };
 
     return (
         <div className="loginPage">
-            {/* 배경 데코 */}
             <div className="bgGlow bgGlow1" />
             <div className="bgGlow bgGlow2" />
 
@@ -28,10 +67,7 @@ export default function Login() {
 
                     <div className="brandCopy">
                         <h2>팀 작업을 한 눈에.</h2>
-                        <p>
-                            Space → Project → Task 흐름으로 업무를 정리하고, 진행률과 담당자를
-                            빠르게 공유하세요.
-                        </p>
+                        <p>Space → Project → Task 흐름으로 업무를 정리하고, 진행률과 담당자를 빠르게 공유하세요.</p>
 
                         <div className="featureList">
                             <div className="featureItem">
@@ -54,13 +90,15 @@ export default function Login() {
                     <div className="loginCard">
                         <div className="cardHeader">
                             <h1>로그인</h1>
-                            <p>Google 계정으로 빠르게 시작하세요.</p>
+                            <p>Google 또는 이메일로 로그인하세요.</p>
                         </div>
 
-                        <button className="googleBtn" onClick={handleGoogleLogin}>
+                        {notice && <div className="errorBox">{notice}</div>}
+                        {error && <div className="errorBox">{error}</div>}
+
+                        <button className="googleBtn" onClick={handleGoogleLogin} disabled={busy}>
               <span className="googleIcon" aria-hidden="true">
-                {/* Google G 아이콘(SVG) */}
-                  <svg width="18" height="18" viewBox="0 0 48 48">
+                <svg width="18" height="18" viewBox="0 0 48 48">
                   <path
                       d="M44.5 20H24v8.5h11.8C34.4 33.7 29.7 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.5 0 6.7 1.4 9.1 3.6l6-6C35.6 5.1 30.1 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.5 0 20-7.6 20-21 0-1.4-.2-2.8-.5-4z"
                       fill="currentColor"
@@ -84,23 +122,55 @@ export default function Login() {
                   />
                 </svg>
               </span>
-                            Google로 계속하기
+                            {busy ? "처리 중..." : "Google로 계속하기"}
                         </button>
 
-                        <div className="helperRow">
-                            <span className="helperText">계정이 없나요?</span>
-                            <button
-                                className="linkBtn"
-                                type="button"
-                                onClick={() => alert("회원가입 흐름은 추후 추가하면 돼요!")}
-                            >
-                                회원가입 안내
-                            </button>
+                        <div className="dividerRow">
+                            <div className="dividerLine" />
+                            <span className="dividerText">또는</span>
+                            <div className="dividerLine" />
                         </div>
 
-                        <div className="finePrint">
-                            계속 진행하면 서비스 이용약관 및 개인정보처리방침에 동의하게 됩니다.
-                        </div>
+                        <form className="emailForm" onSubmit={handleEmailLogin}>
+                            <label className="field">
+                                <span className="fieldLabel">이메일</span>
+                                <input
+                                    className="textInput"
+                                    type="email"
+                                    placeholder="you@example.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    disabled={busy}
+                                    autoComplete="email"
+                                />
+                            </label>
+
+                            <label className="field">
+                                <span className="fieldLabel">비밀번호</span>
+                                <input
+                                    className="textInput"
+                                    type="password"
+                                    placeholder="비밀번호"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    disabled={busy}
+                                    autoComplete="current-password"
+                                />
+                            </label>
+
+                            <button className="submitBtn" type="submit" disabled={busy}>
+                                이메일로 로그인
+                            </button>
+
+                            <div className="helperRow">
+                                <span className="helperText">계정이 없나요?</span>
+                                <button className="linkBtn" type="button" onClick={() => nav("/signup")} disabled={busy}>
+                                    회원가입
+                                </button>
+                            </div>
+                        </form>
+
+                        <div className="finePrint">계속 진행하면 서비스 이용약관 및 개인정보처리방침에 동의하게 됩니다.</div>
                     </div>
 
                     <div className="miniFooter">

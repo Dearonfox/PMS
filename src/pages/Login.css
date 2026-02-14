@@ -52,7 +52,17 @@
         grid-template-columns: 1fr;
     }
     .brandPane {
-        display: none;
+        border-radius: 22px;
+        padding: 28px 28px 22px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.085), rgba(255,255,255,0.035));
+        border: 1px solid rgba(255,255,255,0.10);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+        backdrop-filter: blur(14px);
+
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;   /* 핵심: space-between 제거 */
+        gap: 18px;                    /* 블록 간 간격을 “규칙적으로” */
     }
 }
 
@@ -69,50 +79,63 @@
 }
 
 .brandMark {
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: 0.6px;
+    font-size: 30px;              /* 28 -> 30 살짝 키우고 */
+    font-weight: 900;
+    letter-spacing: 0.4px;        /* 0.6 -> 0.4 로 덜 과장 */
+    line-height: 1.05;
 }
 
 .brandTag {
+    margin-top: 10px;
+    color: rgba(255,255,255,0.62); /* 살짝 톤 다운 */
+    font-size: 13.5px;
+}
+
+/* (추가) 아래 컨텐츠가 너무 바닥에 붙지 않게 “적당히 내려가서” 자리잡게 */
+.brandCopy {
     margin-top: 8px;
-    color: rgba(255,255,255,0.68);
-    font-size: 14px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.08); /* 은은한 구분선 */
 }
 
 .brandCopy h2 {
-    margin: 18px 0 8px;
-    font-size: 24px;
-    letter-spacing: -0.3px;
+    margin: 0 0 10px;
+    font-size: 26px;              /* 24 -> 26 */
+    letter-spacing: -0.4px;
+    line-height: 1.15;
 }
 
 .brandCopy p {
-    margin: 0 0 18px;
-    color: rgba(255,255,255,0.72);
-    line-height: 1.55;
+    margin: 0 0 16px;
+    color: rgba(255,255,255,0.70);
+    line-height: 1.6;
     font-size: 14.5px;
 }
 
+/* 리스트를 “덜 투박하게” */
 .featureList {
     display: grid;
-    gap: 10px;
+    gap: 12px;                    /* 10 -> 12 */
     margin-top: 10px;
 }
 
 .featureItem {
     display: flex;
-    align-items: center;
+    align-items: flex-start;      /* 글이 2줄 되면 더 예쁨 */
     gap: 10px;
     color: rgba(255,255,255,0.82);
     font-size: 14px;
+    line-height: 1.45;
 }
 
+/* 점(dot)을 덜 뭉툭하게 */
 .dot {
     width: 8px;
     height: 8px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.7);
-    box-shadow: 0 0 0 6px rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.70);
+    box-shadow: 0 0 0 5px rgba(255,255,255,0.05); /* 6 -> 5 */
+    margin-top: 6px;              /* align-items:flex-start랑 조합 */
 }
 
 .cardPane {
@@ -214,4 +237,122 @@
     text-align: center;
     color: rgba(255,255,255,0.45);
     font-size: 12px;
+}
+/* --- Email login additions --- */
+.dividerRow{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:14px 0 12px;
+    color: rgba(255,255,255,0.55);
+    font-size: 12.5px;
+}
+.dividerLine{
+    height:1px;
+    flex:1;
+    background: rgba(255,255,255,0.10);
+}
+.dividerText{ white-space:nowrap; }
+
+.emailForm{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    margin-top: 2px;
+}
+
+.field{ display:flex; flex-direction:column; gap:6px; }
+.fieldLabel{
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.70);
+    font-weight: 650;
+}
+
+.textInput{
+    height: 44px;
+    border-radius: 12px;
+    padding: 0 12px;
+    background: rgba(0,0,0,0.20);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.92);
+    outline: none;
+}
+.textInput:focus{
+    border-color: rgba(168, 208, 255, 0.55);
+    box-shadow: 0 0 0 3px rgba(90, 169, 255, 0.12);
+}
+
+.submitBtn{
+    height: 46px;
+    border-radius: 12px;
+    border: 1px solid rgba(90, 169, 255, 0.35);
+    background: rgba(90, 169, 255, 0.22);
+    color: rgba(255,255,255,0.92);
+    font-weight: 800;
+    cursor: pointer;
+}
+.submitBtn:hover{ background: rgba(90, 169, 255, 0.30); }
+.submitBtn:disabled{ opacity: 0.6; cursor: not-allowed; }
+
+.errorBox{
+    border-radius: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 99, 132, 0.35);
+    background: rgba(255, 99, 132, 0.12);
+    color: rgba(255,255,255,0.90);
+    font-size: 13px;
+}
+
+/* ===== Center the whole auth layout (keep left pane) ===== */
+
+/* 화면 전체에서 loginShell(좌+우 묶음)을 정중앙 배치 */
+.loginPage{
+    min-height: 100dvh;          /* 100vh보다 안정적 */
+    display: flex;
+    align-items: center;          /* 세로 중앙 */
+    justify-content: center;      /* 가로 중앙 */
+    padding: 32px 16px;
+}
+
+/* 기존 글로우가 absolute라면 중앙정렬에 방해 안 되게 */
+.bgGlow{
+    pointer-events: none;
+}
+
+/* 좌+우 묶음의 폭을 정하고 가운데 정렬 */
+.loginShell{
+    width: min(1100px, 100%);     /* 전체 묶음 최대 폭 */
+    margin: 0 auto;
+}
+
+/* 카드/왼쪽 패널이 너무 늘어나지 않게 */
+.brandPane{
+    max-width: 520px;
+}
+.cardPane{
+    max-width: 520px;
+}
+/* ===== Single-panel mode: hide left pane, center right card ===== */
+
+.brandPane {
+    display: none !important;
+}
+
+/* 2컬럼 grid를 1컬럼으로 바꿈 */
+.loginShell {
+    grid-template-columns: 1fr !important;
+    width: min(560px, 100%) !important;   /* 카드 폭 */
+    margin: 0 auto !important;
+}
+
+/* 오른쪽 패널이 가운데 오게 */
+.cardPane {
+    width: 100% !important;
+    max-width: 560px;
+    margin: 0 auto !important;
+}
+
+/* 카드 내부도 꽉 차게 */
+.loginCard {
+    width: 100%;
 }

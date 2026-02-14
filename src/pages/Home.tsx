@@ -1,7 +1,9 @@
+import { useState } from "react";
 import type { User } from "firebase/auth";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
-import "./home.css";
+import "./Home.css"; // ✅ 여기 대소문자 맞추기 (파일명 Home.css면 이게 안전)
+
 
 type Props = { user: User };
 
@@ -152,5 +154,3 @@ export default function Home({ user }: Props) {
     );
 }
 
-// react import
-import { useState } from "react";

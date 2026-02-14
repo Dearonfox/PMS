@@ -1,13 +1,23 @@
-/* home.css */
+/* Home.css (Asana-ish, scoped) */
+.asanaApp * { box-sizing: border-box; }
+
 .asanaApp {
     height: 100vh;
     display: grid;
     grid-template-columns: 280px 1fr;
-    background: #0b0f18;
+    background: radial-gradient(1200px 800px at 20% 0%, #0f1b34 0%, #0b0f18 55%, #070b14 100%);
     color: rgba(255, 255, 255, 0.92);
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
 }
 
+/* Vite 기본 button 스타일 덮어쓰기(스코프) */
+.asanaApp button {
+    font: inherit;
+    letter-spacing: inherit;
+    outline: none;
+}
+
+/* Sidebar */
 .asanaSidebar {
     background: rgba(15, 20, 32, 0.75);
     border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -16,27 +26,19 @@
     flex-direction: column;
     padding: 18px 14px;
     gap: 14px;
+    min-width: 0;
 }
 
-.sbBrand {
-    padding: 10px 10px 6px;
-}
-.sbLogo {
-    font-weight: 900;
-    letter-spacing: 0.6px;
-    font-size: 20px;
-}
-.sbSub {
-    margin-top: 6px;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.55);
-}
+.sbBrand { padding: 10px 10px 6px; }
+.sbLogo { font-weight: 900; letter-spacing: 0.6px; font-size: 20px; }
+.sbSub { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
 
 .sbNav {
     display: grid;
     gap: 6px;
     padding: 0 6px;
 }
+
 .sbNavItem {
     height: 36px;
     border-radius: 10px;
@@ -47,9 +49,7 @@
     padding: 0 12px;
     cursor: pointer;
 }
-.sbNavItem:hover {
-    background: rgba(255, 255, 255, 0.06);
-}
+.sbNavItem:hover { background: rgba(255, 255, 255, 0.06); }
 .sbNavItemActive {
     background: rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.92);
@@ -80,21 +80,14 @@
     padding: 0 12px;
     cursor: pointer;
 }
-.sbProjectItem:hover {
-    background: rgba(255, 255, 255, 0.06);
-}
+.sbProjectItem:hover { background: rgba(255, 255, 255, 0.06); }
 .sbProjectItemActive {
     background: rgba(255, 255, 255, 0.09);
     border-color: rgba(255, 255, 255, 0.10);
 }
-.sbEmoji {
-    width: 22px;
-    display: inline-flex;
-    justify-content: center;
-}
-.sbProjectName {
-    font-size: 13.5px;
-}
+
+.sbEmoji { width: 22px; display: inline-flex; justify-content: center; }
+.sbProjectName { font-size: 13.5px; }
 
 .sbFooter {
     margin-top: auto;
@@ -104,11 +97,7 @@
     border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.userChip {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
+.userChip { display: flex; gap: 10px; align-items: center; min-width: 0; }
 .avatar {
     width: 36px;
     height: 36px;
@@ -119,13 +108,8 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     font-weight: 800;
 }
-.userMeta {
-    min-width: 0;
-}
-.userName {
-    font-size: 13px;
-    font-weight: 700;
-}
+.userMeta { min-width: 0; }
+.userName { font-size: 13px; font-weight: 700; }
 .userEmail {
     font-size: 12px;
     color: rgba(255, 255, 255, 0.55);
@@ -143,16 +127,17 @@
     color: rgba(255, 255, 255, 0.85);
     cursor: pointer;
 }
-.ghostBtn:hover {
-    background: rgba(255, 255, 255, 0.09);
-}
+.ghostBtn:hover { background: rgba(255, 255, 255, 0.09); }
 
+/* Main Layout */
 .asanaMain {
     display: grid;
     grid-template-rows: 64px 1fr;
     min-width: 0;
+    overflow: hidden;
 }
 
+/* Topbar */
 .topbar {
     display: flex;
     align-items: center;
@@ -163,35 +148,19 @@
     backdrop-filter: blur(12px);
 }
 
-.crumb {
-    display: flex;
-    gap: 10px;
-    align-items: baseline;
-}
-.crumbMuted {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.55);
-}
-.crumbStrong {
-    font-size: 14px;
-    font-weight: 800;
-}
+.crumb { display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+.crumbMuted { font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+.crumbStrong { font-size: 14px; font-weight: 800; }
 
-.topRight {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
+.topRight { display: flex; align-items: center; gap: 10px; }
 
-.searchWrap {
-    width: min(380px, 42vw);
-}
+.searchWrap { width: min(420px, 46vw); }
 .searchInput {
     width: 100%;
     height: 38px;
     border-radius: 12px;
     padding: 0 12px;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.22);
     border: 1px solid rgba(255, 255, 255, 0.10);
     color: rgba(255, 255, 255, 0.9);
     outline: none;
@@ -203,12 +172,117 @@
 
 .primaryBtn {
     height: 38px;
-    padding: 0 12px;
+    padding: 0 14px;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(90, 169, 255, 0.35);
     background: rgba(90, 169, 255, 0.22);
     color: rgba(255, 255, 255, 0.92);
-    font-weight: 750;
+    font-weight: 800;
     cursor: pointer;
 }
-.prim
+.primaryBtn:hover { background: rgba(90, 169, 255, 0.30); }
+
+/* Content */
+.content {
+    overflow: auto;
+    padding: 16px 18px 18px;
+}
+
+.boardHeader h1 {
+    margin: 8px 0 4px;
+    font-size: 44px;
+    letter-spacing: -0.03em;
+}
+.boardHeader p {
+    margin: 0 0 14px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+/* Kanban (Asana-style: horizontal columns + scroll) */
+.kanban {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    overflow-x: auto;
+    padding-bottom: 14px;
+    min-width: 0;
+}
+
+.col {
+    width: 320px;
+    flex: 0 0 320px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.colHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 12px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.colTitle { font-weight: 900; }
+.colCount {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.colBody {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.taskCard {
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(0, 0, 0, 0.22);
+    padding: 10px 10px;
+}
+
+.taskTitle { font-weight: 800; margin-bottom: 6px; }
+
+.taskMeta { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.pill {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+}
+.pill.muted { color: rgba(255, 255, 255, 0.70); }
+
+.addCardBtn {
+    text-align: left;
+    width: 100%;
+    border-radius: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.80);
+    padding: 10px 10px;
+    cursor: pointer;
+}
+.addCardBtn:hover { background: rgba(255, 255, 255, 0.07); }
+
+/* Scrollbar */
+.content::-webkit-scrollbar,
+.kanban::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+}
+.content::-webkit-scrollbar-thumb,
+.kanban::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.16);
+    border-radius: 999px;
+}
