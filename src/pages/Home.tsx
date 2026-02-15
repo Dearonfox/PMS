@@ -2,10 +2,10 @@ import { useState } from "react";
 import type { User } from "firebase/auth";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
-import "./Home.css"; // ✅ 여기 대소문자 맞추기 (파일명 Home.css면 이게 안전)
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import "./Home.css"; // ✅ 파일명 Home.css면 이게 안전
 
-
-type Props = { user: User };
+type Props = { user: User | null };
 
 type Project = { id: string; name: string; emoji?: string };
 type Task = {
@@ -31,6 +31,9 @@ const demoTasks: Task[] = [
 ];
 
 export default function Home({ user }: Props) {
+    const nav = useNavigate();
+    const location = useLocation();
+
     const [activeProjectId, setActiveProjectId] = useState(demoProjects[0].id);
     const [query, setQuery] = useState("");
 
@@ -41,6 +44,19 @@ export default function Home({ user }: Props) {
         .filter((t) => t.title.toLowerCase().includes(query.toLowerCase()));
 
     const columns: Array<Task["status"]> = ["Todo", "In Progress", "Done"];
+
+    const requireAuth = (action: () => void) => {
+        if (!user) {
+            nav("/login", {
+                state: {
+                    notice: "로그인 후 사용할 수 있어요.",
+                    from: location.pathname,
+                },
+            });
+            return;
+        }
+        action();
+    };
 
     return (
         <div className="asanaApp">
@@ -53,9 +69,27 @@ export default function Home({ user }: Props) {
 
                 <nav className="sbNav">
                     <button className="sbNavItem sbNavItemActive">Home</button>
-                    <button className="sbNavItem">My tasks</button>
-                    <button className="sbNavItem">Inbox</button>
-                    <button className="sbNavItem">Reporting</button>
+                    <button
+                        className="sbNavItem"
+                        onClick={() => requireAuth(() => alert("추후: My tasks 화면"))}
+                        title={!user ? "로그인 필요" : undefined}
+                    >
+                        My tasks
+                    </button>
+                    <button
+                        className="sbNavItem"
+                        onClick={() => requireAuth(() => alert("추후: Inbox 화면"))}
+                        title={!user ? "로그인 필요" : undefined}
+                    >
+                        Inbox
+                    </button>
+                    <button
+                        className="sbNavItem"
+                        onClick={() => requireAuth(() => alert("추후: Reporting 화면"))}
+                        title={!user ? "로그인 필요" : undefined}
+                    >
+                        Reporting
+                    </button>
                 </nav>
 
                 <div className="sbSectionTitle">Projects</div>
@@ -73,17 +107,25 @@ export default function Home({ user }: Props) {
                 </div>
 
                 <div className="sbFooter">
-                    <div className="userChip" title={user.email ?? ""}>
-                        <div className="avatar">{(user.displayName?.[0] ?? user.email?.[0] ?? "U").toUpperCase()}</div>
+                    <div className="userChip" title={user?.email ?? ""}>
+                        <div className="avatar">
+                            {(user?.displayName?.[0] ?? user?.email?.[0] ?? "G").toUpperCase()}
+                        </div>
                         <div className="userMeta">
-                            <div className="userName">{user.displayName ?? "User"}</div>
-                            <div className="userEmail">{user.email ?? ""}</div>
+                            <div className="userName">{user?.displayName ?? "Guest"}</div>
+                            <div className="userEmail">{user?.email ?? "로그인하면 기능을 사용할 수 있어요"}</div>
                         </div>
                     </div>
 
-                    <button className="ghostBtn" onClick={() => signOut(auth)}>
-                        로그아웃
-                    </button>
+                    {user ? (
+                        <button className="ghostBtn" onClick={() => signOut(auth)}>
+                            로그아웃
+                        </button>
+                    ) : (
+                        <Link className="ghostBtn" to="/login" state={{ from: location.pathname }}>
+                            로그인
+                        </Link>
+                    )}
                 </div>
             </aside>
 
@@ -107,7 +149,11 @@ export default function Home({ user }: Props) {
                                 onChange={(e) => setQuery(e.target.value)}
                             />
                         </div>
-                        <button className="primaryBtn" onClick={() => alert("추후: Task 생성 모달")}>
+                        <button
+                            className="primaryBtn"
+                            onClick={() => requireAuth(() => alert("추후: Task 생성 모달"))}
+                            title={!user ? "로그인 필요" : undefined}
+                        >
                             + New task
                         </button>
                     </div>
@@ -117,7 +163,9 @@ export default function Home({ user }: Props) {
                 <section className="content">
                     <div className="boardHeader">
                         <h1>{activeProject.name}</h1>
-                        <p>Asana 느낌의 기본 홈(데모 데이터). 다음은 API/DB 연동하면 됨.</p>
+                        <p>
+                            Asana 느낌의 기본 홈(데모 데이터).{user ? "" : " (Guest 모드)"} 다음은 API/DB 연동하면 됨.
+                        </p>
                     </div>
 
                     <div className="kanban">
@@ -141,7 +189,11 @@ export default function Home({ user }: Props) {
                                             </article>
                                         ))}
 
-                                    <button className="addCardBtn" onClick={() => alert(`추후: ${col}에 task 추가`)}>
+                                    <button
+                                        className="addCardBtn"
+                                        onClick={() => requireAuth(() => alert(`추후: ${col}에 task 추가`))}
+                                        title={!user ? "로그인 필요" : undefined}
+                                    >
                                         + Add task
                                     </button>
                                 </div>
@@ -153,4 +205,3 @@ export default function Home({ user }: Props) {
         </div>
     );
 }
-
