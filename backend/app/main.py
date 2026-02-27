@@ -1,27 +1,31 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
-from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from app.db import SessionLocal
 
-
+# --- Pydantic models ---
 class TaskCreate(BaseModel):
-    title : str
+    title: str
     description: str | None = None
 
 class TaskUpdate(BaseModel):
-    title: str |None = None
-    description : str | None =None
+    title: str | None = None
+    description: str | None = None
 
-
+# --- In-memory store ---
 tasks: list[dict] = []
+
+# --- FastAPI app ---
 app = FastAPI()
 
 @app.get("/")
 def read_root():
-    return{"hello" : "FastAPI"}
+    return {"hello": "FastAPI"}
 
 @app.get("/health")
 def health():
-    return { "ok" : True}
+    return {"ok": True}
 
 @app.get("/tasks")
 def list_tasks():
@@ -32,24 +36,24 @@ def get_task(task_id: int):
     for t in tasks:
         if t["id"] == task_id:
             return t
-    raise HTTPException(status_code=404, detail = "Task not found")
+    raise HTTPException(status_code=404, detail="Task not found")
 
 @app.post("/tasks")
-def create_task(body : TaskCreate):
-    task = { "id" : len(tasks) +1, "title" : body.title, "description" : body.description}
+def create_task(body: TaskCreate):
+    task = {"id": len(tasks) + 1, "title": body.title, "description": body.description}
     tasks.append(task)
     return task
 
 @app.patch("/tasks/{task_id}")
-def update_task(task_id: int, body : TaskUpdate):
+def update_task(task_id: int, body: TaskUpdate):
     for t in tasks:
-        if t["id"] ==task_id:
+        if t["id"] == task_id:
             if body.title is not None:
-                t["title"]= body.title
+                t["title"] = body.title
             if body.description is not None:
                 t["description"] = body.description
             return t
-    raise HTTPException(status_code= 404, detail= "Task not found")
+    raise HTTPException(status_code=404, detail="Task not found")
 
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: int):
@@ -57,4 +61,16 @@ def delete_task(task_id: int):
         if t["id"] == task_id:
             tasks.pop(i)
             return {"deleted": True}
-    raise HTTPException(status_code =404, detail = "task not found" )
+    raise HTTPException(status_code=404, detail="Task not found")
+
+# --- DB session dependency ---
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.get("/db-ping")
+def db_ping(db: Session = Depends(get_db)):
+    return {"ok": db.execute(text("SELECT 1")).scalar() == 1}
