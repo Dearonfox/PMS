@@ -1,76 +1,39 @@
-from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from app.db import SessionLocal
+from contextlib import asynccontextmanager
 
-# --- Pydantic models ---
-class TaskCreate(BaseModel):
-    title: str
-    description: str | None = None
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-class TaskUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
+from app.api.v1.router import api_router
+from app.init_db import create_tables, seed_database
 
-# --- In-memory store ---
-tasks: list[dict] = []
 
-# --- FastAPI app ---
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    create_tables()
+    seed_database()
+    yield
+
+
+app = FastAPI(
+    title="PMS API",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_router, prefix="/api/v1")
+
 
 @app.get("/")
-def read_root():
-    return {"hello": "FastAPI"}
-
-@app.get("/health")
-def health():
-    return {"ok": True}
-
-@app.get("/tasks")
-def list_tasks():
-    return tasks
-
-@app.get("/tasks/{task_id}")
-def get_task(task_id: int):
-    for t in tasks:
-        if t["id"] == task_id:
-            return t
-    raise HTTPException(status_code=404, detail="Task not found")
-
-@app.post("/tasks")
-def create_task(body: TaskCreate):
-    task = {"id": len(tasks) + 1, "title": body.title, "description": body.description}
-    tasks.append(task)
-    return task
-
-@app.patch("/tasks/{task_id}")
-def update_task(task_id: int, body: TaskUpdate):
-    for t in tasks:
-        if t["id"] == task_id:
-            if body.title is not None:
-                t["title"] = body.title
-            if body.description is not None:
-                t["description"] = body.description
-            return t
-    raise HTTPException(status_code=404, detail="Task not found")
-
-@app.delete("/tasks/{task_id}")
-def delete_task(task_id: int):
-    for i, t in enumerate(tasks):
-        if t["id"] == task_id:
-            tasks.pop(i)
-            return {"deleted": True}
-    raise HTTPException(status_code=404, detail="Task not found")
-
-# --- DB session dependency ---
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-@app.get("/db-ping")
-def db_ping(db: Session = Depends(get_db)):
-    return {"ok": db.execute(text("SELECT 1")).scalar() == 1}
+def read_root() -> dict[str, str]:
+    return {"message": "PMS API is running"}
