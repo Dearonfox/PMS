@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createUserWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
-import { auth } from "../firebase";
+
 import "./Login.css";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
 
 export default function Signup() {
     const nav = useNavigate();
+    const [displayName, setDisplayName] = useState("");
     const [email, setEmail] = useState("");
     const [pw, setPw] = useState("");
     const [busy, setBusy] = useState(false);
@@ -15,35 +17,41 @@ export default function Signup() {
         e.preventDefault();
         setError(null);
 
-        if (!email.trim() || !pw.trim()) {
-            setError("이메일/비밀번호를 입력해주세요.");
+        if (!displayName.trim() || !email.trim() || !pw.trim()) {
+            setError("이름, 이메일, 비밀번호를 입력해주세요.");
             return;
         }
 
         setBusy(true);
         try {
-            const cred = await createUserWithEmailAndPassword(auth, email.trim(), pw);
+            const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    display_name: displayName.trim(),
+                    password: pw,
+                }),
+            });
 
-            // displayName 비었으면 이메일 앞부분 임시로
-            if (!cred.user.displayName) {
-                const name = email.split("@")[0] || "PMS User";
-                await updateProfile(cred.user, { displayName: name });
+            if (response.status === 409) {
+                setError("이미 가입된 이메일이에요.");
+                return;
             }
 
-            // ✅ 자동 로그인 방지
-            await signOut(auth);
+            if (!response.ok) {
+                throw new Error("Signup failed.");
+            }
+
             nav("/login", {
                 replace: true,
                 state: { notice: "회원가입이 완료되었습니다! 로그인 해주세요." },
             });
-            nav("/login", { replace: true, state: { notice: "회원가입이 완료되었습니다! 로그인 해주세요." } });
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            const code = e?.code;
-            if (code === "auth/email-already-in-use") setError("이미 가입된 이메일이에요.");
-            else if (code === "auth/weak-password") setError("비밀번호가 너무 약해요. (6자 이상)");
-            else if (code === "auth/invalid-email") setError("이메일 형식이 올바르지 않아요.");
-            else setError("회원가입에 실패했어요. 잠시 후 다시 시도해주세요.");
+            setError("회원가입에 실패했어요. 잠시 후 다시 시도해주세요.");
         } finally {
             setBusy(false);
         }
@@ -63,7 +71,7 @@ export default function Signup() {
 
                     <div className="brandCopy">
                         <h2>새 계정을 만들어요.</h2>
-                        <p>이메일로 가입 후 로그인하면 홈 화면으로 이동합니다.</p>
+                        <p>가입 후 이메일과 비밀번호로 로그인하면 홈 화면으로 이동합니다.</p>
                     </div>
                 </div>
 
@@ -71,12 +79,25 @@ export default function Signup() {
                     <div className="loginCard">
                         <div className="cardHeader">
                             <h1>회원가입</h1>
-                            <p>이메일로 계정을 생성하세요.</p>
+                            <p>FastAPI 자체 JWT 인증 계정을 생성하세요.</p>
                         </div>
 
                         {error && <div className="errorBox">{error}</div>}
 
                         <form className="emailForm" onSubmit={onSignup}>
+                            <label className="field">
+                                <span className="fieldLabel">이름</span>
+                                <input
+                                    className="textInput"
+                                    type="text"
+                                    placeholder="홍길동"
+                                    value={displayName}
+                                    onChange={(e) => setDisplayName(e.target.value)}
+                                    disabled={busy}
+                                    autoComplete="name"
+                                />
+                            </label>
+
                             <label className="field">
                                 <span className="fieldLabel">이메일</span>
                                 <input

@@ -18,6 +18,7 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     auth_provider: Mapped[str] = mapped_column(String(30), nullable=False)
     provider_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())

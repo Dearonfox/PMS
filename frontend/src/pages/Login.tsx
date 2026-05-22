@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
-import { auth, googleProvider } from "../firebase";
+import { useLocation, useNavigate } from "react-router-dom";
+
+import type { AuthUser } from "../App";
 import "./Login.css";
 
 type LoginLocationState = {
@@ -9,16 +9,23 @@ type LoginLocationState = {
     from?: string;
 };
 
-type FirebaseAuthError = {
-    code?: string;
-    message?: string;
+type AuthResponse = {
+    access_token: string;
+    token_type: string;
+    user: AuthUser;
 };
 
-export default function Login() {
+type Props = {
+    onLogin: (user: AuthUser) => void;
+};
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
+const ACCESS_TOKEN_KEY = "pms_access_token";
+
+export default function Login({ onLogin }: Props) {
     const nav = useNavigate();
     const location = useLocation();
 
-    // ✅ any 없이 location.state 안전하게 사용
     const state = useMemo(() => (location.state ?? {}) as LoginLocationState, [location.state]);
     const notice = state.notice;
     const from = state.from ?? "/";
@@ -27,20 +34,6 @@ export default function Login() {
     const [password, setPassword] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    const handleGoogleLogin = async () => {
-        setError(null);
-        setBusy(true);
-        try {
-            await signInWithPopup(auth, googleProvider);
-            nav(from, { replace: true });
-        } catch (err: unknown) {
-            console.error(err);
-            setError("Google 로그인에 실패했어요. 잠시 후 다시 시도해주세요.");
-        } finally {
-            setBusy(false);
-        }
-    };
 
     const handleEmailLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,16 +46,28 @@ export default function Login() {
 
         setBusy(true);
         try {
-            await signInWithEmailAndPassword(auth, email.trim(), password);
+            const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    password,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Invalid credentials");
+            }
+
+            const authResponse = (await response.json()) as AuthResponse;
+            window.localStorage.setItem(ACCESS_TOKEN_KEY, authResponse.access_token);
+            onLogin(authResponse.user);
             nav(from, { replace: true });
         } catch (err: unknown) {
             console.error(err);
-            const code = (err as FirebaseAuthError)?.code;
-
-            if (code === "auth/invalid-email") setError("이메일 형식이 올바르지 않아요.");
-            else if (code === "auth/user-not-found") setError("해당 이메일 계정이 없어요.");
-            else if (code === "auth/wrong-password") setError("비밀번호가 올바르지 않아요.");
-            else setError("로그인에 실패했어요. 잠시 후 다시 시도해주세요.");
+            setError("이메일 또는 비밀번호가 올바르지 않아요.");
         } finally {
             setBusy(false);
         }
@@ -87,7 +92,7 @@ export default function Login() {
                         <div className="featureList">
                             <div className="featureItem">
                                 <span className="dot" />
-                                <span>스페이스별 권한(Admin/User/Viewer)</span>
+                                <span>FastAPI 자체 JWT 인증</span>
                             </div>
                             <div className="featureItem">
                                 <span className="dot" />
@@ -105,46 +110,11 @@ export default function Login() {
                     <div className="loginCard">
                         <div className="cardHeader">
                             <h1>로그인</h1>
-                            <p>Google 또는 이메일로 로그인하세요.</p>
+                            <p>이메일과 비밀번호로 로그인하세요.</p>
                         </div>
 
                         {notice && <div className="errorBox">{notice}</div>}
                         {error && <div className="errorBox">{error}</div>}
-
-                        <button className="googleBtn" onClick={handleGoogleLogin} disabled={busy}>
-                            <span className="googleIcon" aria-hidden="true">
-                                <svg width="18" height="18" viewBox="0 0 48 48">
-                                    <path
-                                        d="M44.5 20H24v8.5h11.8C34.4 33.7 29.7 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.5 0 6.7 1.4 9.1 3.6l6-6C35.6 5.1 30.1 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.5 0 20-7.6 20-21 0-1.4-.2-2.8-.5-4z"
-                                        fill="currentColor"
-                                        opacity="0.12"
-                                    />
-                                    <path
-                                        d="M44.5 20H24v8.5h11.8C34.4 33.7 29.7 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.5 0 6.7 1.4 9.1 3.6l6-6C35.6 5.1 30.1 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.5 0 20-7.6 20-21 0-1.4-.2-2.8-.5-4z"
-                                        fill="#4285F4"
-                                    />
-                                    <path
-                                        d="M6.3 14.7l7 5.1C15 16.1 19.2 13 24 13c3.5 0 6.7 1.4 9.1 3.6l6-6C35.6 5.1 30.1 3 24 3 16 3 9.1 7.4 6.3 14.7z"
-                                        fill="#EA4335"
-                                    />
-                                    <path
-                                        d="M24 45c6 0 11.5-2 15.6-5.5l-7.2-5.9C30.2 35.3 27.2 36.3 24 36.3c-5.7 0-10.4-3.3-12.8-8.4l-7.2 5.5C6.8 40.6 14.8 45 24 45z"
-                                        fill="#34A853"
-                                    />
-                                    <path
-                                        d="M11.2 27.9c-.6-1.7-1-3.5-1-5.4 0-1.8.3-3.5.9-5.1l-7-5.1C2.7 15.4 2 19.1 2 23c0 4.1.8 7.9 2.3 11.3l6.9-6.4z"
-                                        fill="#FBBC05"
-                                    />
-                                </svg>
-                            </span>
-                            {busy ? "처리 중..." : "Google로 계속하기"}
-                        </button>
-
-                        <div className="dividerRow">
-                            <div className="dividerLine" />
-                            <span className="dividerText">또는</span>
-                            <div className="dividerLine" />
-                        </div>
 
                         <form className="emailForm" onSubmit={handleEmailLogin}>
                             <label className="field">
@@ -174,7 +144,7 @@ export default function Login() {
                             </label>
 
                             <button className="submitBtn" type="submit" disabled={busy}>
-                                이메일로 로그인
+                                {busy ? "처리 중..." : "이메일로 로그인"}
                             </button>
 
                             <div className="helperRow">
@@ -190,7 +160,7 @@ export default function Login() {
                             </div>
                         </form>
 
-                        <div className="finePrint">계속 진행하면 서비스 이용약관 및 개인정보처리방침에 동의하게 됩니다.</div>
+                        <div className="finePrint">로그인 후 JWT 토큰으로 보호된 API를 호출합니다.</div>
                     </div>
 
                     <div className="miniFooter">
@@ -201,3 +171,4 @@ export default function Login() {
         </div>
     );
 }
+

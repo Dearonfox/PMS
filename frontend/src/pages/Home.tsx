@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import type { User } from "firebase/auth";
-import { signOut } from "firebase/auth";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { auth } from "../firebase";
+import type { AuthUser } from "../App";
 import "./Home.css";
 
-type Props = { user: User | null };
+type Props = {
+    user: AuthUser | null;
+    onLogout: () => void;
+};
 
 type Project = { id: number; name: string; emoji?: string };
 type TaskStatus = "Todo" | "In Progress" | "Done";
@@ -44,7 +45,7 @@ type CreateTaskForm = {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
 const columns: TaskStatus[] = ["Todo", "In Progress", "Done"];
-const BACKEND_USER_ID_KEY = "pms_backend_user_id";
+const ACCESS_TOKEN_KEY = "pms_access_token";
 
 const emptyForm = (status: TaskStatus): CreateTaskForm => ({
     title: "",
@@ -67,7 +68,7 @@ function mapTask(task: ApiTask): Task {
     };
 }
 
-export default function Home({ user }: Props) {
+export default function Home({ user, onLogout }: Props) {
     const nav = useNavigate();
     const location = useLocation();
 
@@ -116,7 +117,7 @@ export default function Home({ user }: Props) {
     }, []);
 
     const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0] ?? null;
-    const backendUserId = Number(window.localStorage.getItem(BACKEND_USER_ID_KEY)) || null;
+    const backendUserId = user?.id ?? null;
 
     const visibleTasks = tasks
         .filter((task) => {
@@ -180,12 +181,12 @@ export default function Home({ user }: Props) {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    Authorization: `Bearer ${window.localStorage.getItem(ACCESS_TOKEN_KEY) ?? ""}`,
                 },
                 body: JSON.stringify({
                     title: form.title.trim(),
                     project_id: activeProject.id,
                     status: form.status,
-                    creator_id: Number(window.localStorage.getItem(BACKEND_USER_ID_KEY)) || null,
                     assignee: form.assignee.trim() || null,
                     due: form.due.trim() || null,
                     description: form.description.trim() || null,
@@ -263,16 +264,22 @@ export default function Home({ user }: Props) {
                 <div className="sbFooter">
                     <div className="userChip" title={user?.email ?? ""}>
                         <div className="avatar">
-                            {(user?.displayName?.[0] ?? user?.email?.[0] ?? "G").toUpperCase()}
+                            {(user?.display_name?.[0] ?? user?.email?.[0] ?? "G").toUpperCase()}
                         </div>
                         <div className="userMeta">
-                            <div className="userName">{user?.displayName ?? "Guest"}</div>
+                            <div className="userName">{user?.display_name ?? "Guest"}</div>
                             <div className="userEmail">{user?.email ?? "Login to create and manage tasks."}</div>
                         </div>
                     </div>
 
                     {user ? (
-                        <button className="ghostBtn" onClick={() => void signOut(auth)}>
+                        <button
+                            className="ghostBtn"
+                            onClick={() => {
+                                window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+                                onLogout();
+                            }}
+                        >
                             Logout
                         </button>
                     ) : (

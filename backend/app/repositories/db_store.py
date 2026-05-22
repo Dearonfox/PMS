@@ -1,9 +1,11 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.security import hash_password, verify_password
 from app.models.project import Project
 from app.models.task import Task as TaskModel
 from app.models.user import User
+from app.schemas.auth import SignupRequest
 from app.schemas.project import Project as ProjectSchema
 from app.schemas.task import Task, TaskCreate, TaskUpdate
 from app.schemas.user import UserProfile, UserSyncRequest
@@ -63,7 +65,7 @@ def get_task(db: Session, task_id: int) -> Task | None:
     return _to_task_schema(task)
 
 
-def create_task(db: Session, payload: TaskCreate) -> Task:
+def create_task(db: Session, payload: TaskCreate, creator_id: int | None = None) -> Task:
     max_position = db.scalar(
         select(TaskModel.position)
         .where(TaskModel.project_id == payload.project_id)
@@ -79,7 +81,7 @@ def create_task(db: Session, payload: TaskCreate) -> Task:
         due=payload.due,
         assignee_name=payload.assignee,
         description=payload.description,
-        creator_id=payload.creator_id or 1,
+        creator_id=creator_id or payload.creator_id or 1,
         position=next_position,
     )
     db.add(task)
@@ -145,3 +147,29 @@ def sync_user(db: Session, payload: UserSyncRequest) -> UserProfile:
     db.commit()
     db.refresh(user)
     return _to_user_profile(user)
+
+
+def create_local_user(db: Session, payload: SignupRequest) -> User | None:
+    existing_user = db.scalar(select(User).where(User.email == payload.email))
+    if existing_user is not None:
+        return None
+
+    user = User(
+        email=payload.email,
+        display_name=payload.display_name,
+        auth_provider="local",
+        provider_user_id=payload.email,
+        password_hash=hash_password(payload.password),
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def authenticate_local_user(db: Session, email: str, password: str) -> User | None:
+    user = db.scalar(select(User).where(User.email == email, User.auth_provider == "local"))
+    if user is None or not verify_password(password, user.password_hash):
+        return None
+    return user

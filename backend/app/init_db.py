@@ -1,12 +1,25 @@
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
 
+from app.core.security import hash_password
 from app.db import Base, engine
 from app.models import Project, ProjectMember, Space, SpaceMember, Task, User
 
 
 def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_schema_updates()
+
+
+def ensure_schema_updates() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("users"):
+        return
+
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+    if "password_hash" not in user_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NULL"))
 
 
 def seed_database() -> None:
@@ -20,6 +33,7 @@ def seed_database() -> None:
             display_name="PMS Owner",
             auth_provider="seed",
             provider_user_id="seed-owner",
+            password_hash=hash_password("password123"),
             bio="Initial seeded owner account for local development.",
         )
         db.add(owner)
