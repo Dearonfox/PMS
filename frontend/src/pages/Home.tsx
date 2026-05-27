@@ -35,7 +35,7 @@ type ApiTask = {
     creator_id: number;
 };
 
-type CreateTaskForm = {
+type TaskForm = {
     title: string;
     status: TaskStatus;
     assignee: string;
@@ -46,13 +46,26 @@ type CreateTaskForm = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
 const columns: TaskStatus[] = ["Todo", "In Progress", "Done"];
 const ACCESS_TOKEN_KEY = "pms_access_token";
+const statusLabels: Record<TaskStatus, string> = {
+    Todo: "할 일",
+    "In Progress": "진행 중",
+    Done: "완료",
+};
 
-const emptyForm = (status: TaskStatus): CreateTaskForm => ({
+const emptyForm = (status: TaskStatus): TaskForm => ({
     title: "",
     status,
     assignee: "",
     due: "",
     description: "",
+});
+
+const formFromTask = (task: Task): TaskForm => ({
+    title: task.title,
+    status: task.status,
+    assignee: task.assignee ?? "",
+    due: task.due ?? "",
+    description: task.description ?? "",
 });
 
 function mapTask(task: ApiTask): Task {
@@ -82,7 +95,14 @@ export default function Home({ user, onLogout }: Props) {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
-    const [form, setForm] = useState<CreateTaskForm>(emptyForm("Todo"));
+    const [form, setForm] = useState<TaskForm>(emptyForm("Todo"));
+    const [editingTask, setEditingTask] = useState<Task | null>(null);
+    const [editForm, setEditForm] = useState<TaskForm>(emptyForm("Todo"));
+    const [editError, setEditError] = useState<string | null>(null);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [deleteConfirmTask, setDeleteConfirmTask] = useState<Task | null>(null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
 
     useEffect(() => {
         const loadBoard = async () => {
@@ -96,7 +116,7 @@ export default function Home({ user, onLogout }: Props) {
                 ]);
 
                 if (!projectsResponse.ok || !tasksResponse.ok) {
-                    throw new Error("Failed to load board data.");
+                    throw new Error("보드 데이터를 불러오지 못했습니다.");
                 }
 
                 const projectsData = (await projectsResponse.json()) as ApiProject[];
@@ -107,7 +127,7 @@ export default function Home({ user, onLogout }: Props) {
                 setActiveProjectId((current) => current ?? projectsData[0]?.id ?? null);
             } catch (error) {
                 console.error(error);
-                setLoadError("Could not connect to the backend API. Check that the FastAPI server is running.");
+                setLoadError("백엔드에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.");
             } finally {
                 setLoading(false);
             }
@@ -132,7 +152,7 @@ export default function Home({ user, onLogout }: Props) {
         if (!user) {
             nav("/login", {
                 state: {
-                    notice: "Login is required to use this action.",
+                    notice: "이 기능을 사용하려면 로그인이 필요합니다.",
                     from: location.pathname,
                 },
             });
@@ -140,6 +160,11 @@ export default function Home({ user, onLogout }: Props) {
         }
         action();
     };
+
+    const authHeaders = () => ({
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${window.localStorage.getItem(ACCESS_TOKEN_KEY) ?? ""}`,
+    });
 
     const openCreateModal = (status: TaskStatus = "Todo") => {
         if (!activeProject) {
@@ -160,16 +185,31 @@ export default function Home({ user, onLogout }: Props) {
         setCreateError(null);
     };
 
+    const openEditModal = (task: Task) => {
+        setEditingTask(task);
+        setEditForm(formFromTask(task));
+        setEditError(null);
+    };
+
+    const closeEditModal = () => {
+        if (isUpdating) {
+            return;
+        }
+
+        setEditingTask(null);
+        setEditError(null);
+    };
+
     const handleCreateTask = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         if (!activeProject) {
-            setCreateError("Choose a project before creating a task.");
+            setCreateError("작업을 만들 프로젝트를 먼저 선택해주세요.");
             return;
         }
 
         if (!form.title.trim()) {
-            setCreateError("Task title is required.");
+            setCreateError("작업 제목을 입력해주세요.");
             return;
         }
 
@@ -179,10 +219,7 @@ export default function Home({ user, onLogout }: Props) {
         try {
             const response = await fetch(`${API_BASE_URL}/tasks`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${window.localStorage.getItem(ACCESS_TOKEN_KEY) ?? ""}`,
-                },
+                headers: authHeaders(),
                 body: JSON.stringify({
                     title: form.title.trim(),
                     project_id: activeProject.id,
@@ -194,7 +231,7 @@ export default function Home({ user, onLogout }: Props) {
             });
 
             if (!response.ok) {
-                throw new Error("Task creation failed.");
+                throw new Error("작업 생성에 실패했습니다.");
             }
 
             const createdTask = (await response.json()) as ApiTask;
@@ -203,9 +240,90 @@ export default function Home({ user, onLogout }: Props) {
             setForm(emptyForm("Todo"));
         } catch (error) {
             console.error(error);
-            setCreateError("Could not create the task. Check the backend server and try again.");
+            setCreateError("작업을 만들 수 없습니다. 백엔드 서버를 확인한 뒤 다시 시도해주세요.");
         } finally {
             setIsCreating(false);
+        }
+    };
+
+    const handleUpdateTask = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (!editingTask) {
+            return;
+        }
+
+        if (!editForm.title.trim()) {
+            setEditError("작업 제목을 입력해주세요.");
+            return;
+        }
+
+        setIsUpdating(true);
+        setEditError(null);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/tasks/${editingTask.id}`, {
+                method: "PATCH",
+                headers: authHeaders(),
+                body: JSON.stringify({
+                    title: editForm.title.trim(),
+                    project_id: editingTask.projectId,
+                    status: editForm.status,
+                    assignee: editForm.assignee.trim() || null,
+                    due: editForm.due.trim() || null,
+                    description: editForm.description.trim() || null,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("작업 수정에 실패했습니다.");
+            }
+
+            const updatedTask = mapTask((await response.json()) as ApiTask);
+            setTasks((current) => current.map((task) => (task.id === updatedTask.id ? updatedTask : task)));
+            setEditingTask(null);
+        } catch (error) {
+            console.error(error);
+            setEditError("작업을 수정할 수 없습니다. 백엔드 서버를 확인한 뒤 다시 시도해주세요.");
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const closeDeleteModal = () => {
+        if (deletingTaskId !== null) {
+            return;
+        }
+
+        setDeleteConfirmTask(null);
+        setDeleteError(null);
+    };
+
+    const handleDeleteTask = async () => {
+        if (!deleteConfirmTask) {
+            return;
+        }
+
+        setDeletingTaskId(deleteConfirmTask.id);
+        setDeleteError(null);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/tasks/${deleteConfirmTask.id}`, {
+                method: "DELETE",
+                headers: authHeaders(),
+            });
+
+            if (!response.ok) {
+                throw new Error("작업 삭제에 실패했습니다.");
+            }
+
+            setTasks((current) => current.filter((item) => item.id !== deleteConfirmTask.id));
+            setDeleteConfirmTask(null);
+        } catch (error) {
+            console.error(error);
+            setDeleteError("작업을 삭제할 수 없습니다. 백엔드 서버를 확인한 뒤 다시 시도해주세요.");
+        } finally {
+            setDeletingTaskId(null);
         }
     };
 
@@ -214,7 +332,7 @@ export default function Home({ user, onLogout }: Props) {
             <aside className="asanaSidebar">
                 <div className="sbBrand">
                     <div className="sbLogo">PMS</div>
-                    <div className="sbSub">Asana-inspired workflow</div>
+                    <div className="sbSub">팀 작업 관리 보드</div>
                 </div>
 
                 <nav className="sbNav">
@@ -222,29 +340,29 @@ export default function Home({ user, onLogout }: Props) {
                         className={`sbNavItem ${viewMode === "home" ? "sbNavItemActive" : ""}`}
                         onClick={() => setViewMode("home")}
                     >
-                        Home
+                        홈
                     </button>
                     <button
                         className={`sbNavItem ${viewMode === "my-tasks" ? "sbNavItemActive" : ""}`}
                         onClick={() => requireAuth(() => setViewMode("my-tasks"))}
                     >
-                        My tasks
+                        내 작업
                     </button>
                     <button
                         className="sbNavItem"
-                        onClick={() => requireAuth(() => alert("Inbox view is next on the roadmap."))}
+                        onClick={() => requireAuth(() => alert("받은함 화면은 다음 단계에서 구현할 예정입니다."))}
                     >
-                        Inbox
+                        받은함
                     </button>
                     <button
                         className="sbNavItem"
-                        onClick={() => requireAuth(() => alert("Reporting view is next on the roadmap."))}
+                        onClick={() => requireAuth(() => alert("리포트 화면은 다음 단계에서 구현할 예정입니다."))}
                     >
-                        Reporting
+                        리포트
                     </button>
                 </nav>
 
-                <div className="sbSectionTitle">Projects</div>
+                <div className="sbSectionTitle">프로젝트</div>
                 <div className="sbProjects">
                     {projects.map((project) => (
                         <button
@@ -267,8 +385,8 @@ export default function Home({ user, onLogout }: Props) {
                             {(user?.display_name?.[0] ?? user?.email?.[0] ?? "G").toUpperCase()}
                         </div>
                         <div className="userMeta">
-                            <div className="userName">{user?.display_name ?? "Guest"}</div>
-                            <div className="userEmail">{user?.email ?? "Login to create and manage tasks."}</div>
+                            <div className="userName">{user?.display_name ?? "게스트"}</div>
+                            <div className="userEmail">{user?.email ?? "로그인하면 작업을 만들고 관리할 수 있습니다."}</div>
                         </div>
                     </div>
 
@@ -280,11 +398,11 @@ export default function Home({ user, onLogout }: Props) {
                                 onLogout();
                             }}
                         >
-                            Logout
+                            로그아웃
                         </button>
                     ) : (
                         <Link className="ghostBtn ghostLink" to="/login" state={{ from: location.pathname }}>
-                            Login
+                            로그인
                         </Link>
                     )}
                 </div>
@@ -294,9 +412,9 @@ export default function Home({ user, onLogout }: Props) {
                 <header className="topbar">
                     <div className="topLeft">
                         <div className="crumb">
-                            <span className="crumbMuted">Project</span>
+                            <span className="crumbMuted">프로젝트</span>
                             <span className="crumbStrong">
-                                {viewMode === "my-tasks" ? "My tasks" : activeProject?.name ?? "No project selected"}
+                                {viewMode === "my-tasks" ? "내 작업" : activeProject?.name ?? "선택된 프로젝트 없음"}
                             </span>
                         </div>
                     </div>
@@ -305,7 +423,7 @@ export default function Home({ user, onLogout }: Props) {
                         <div className="searchWrap">
                             <input
                                 className="searchInput"
-                                placeholder="Search tasks"
+                                placeholder="작업 검색"
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
                             />
@@ -315,32 +433,32 @@ export default function Home({ user, onLogout }: Props) {
                             onClick={() => requireAuth(() => openCreateModal("Todo"))}
                             disabled={!activeProject && viewMode !== "my-tasks"}
                         >
-                            + New task
+                            + 새 작업
                         </button>
                     </div>
                 </header>
 
                 <section className="content">
                     <div className="boardHeader">
-                        <h1>{viewMode === "my-tasks" ? "My tasks" : activeProject?.name ?? "Projects"}</h1>
+                        <h1>{viewMode === "my-tasks" ? "내 작업" : activeProject?.name ?? "프로젝트"}</h1>
                         <p>
                             {viewMode === "my-tasks"
-                                ? "Tasks created by the currently signed-in account are filtered here."
-                                : "Live data is now loaded from the FastAPI backend. Create a task here and it will appear in the matching column immediately."}
+                                ? "현재 로그인한 계정이 만든 작업만 모아서 보여줍니다."
+                                : "백엔드에서 불러온 실제 데이터입니다. 새 작업을 만들면 선택한 상태 컬럼에 바로 표시됩니다."}
                         </p>
                     </div>
 
-                    {loading ? <div className="infoBanner">Loading projects and tasks...</div> : null}
+                    {loading ? <div className="infoBanner">프로젝트와 작업을 불러오는 중입니다...</div> : null}
                     {loadError ? <div className="errorBanner">{loadError}</div> : null}
                     {!loading && !loadError && projects.length === 0 ? (
-                        <div className="infoBanner">No projects found in the backend yet.</div>
+                        <div className="infoBanner">아직 백엔드에 프로젝트가 없습니다.</div>
                     ) : null}
 
                     <div className="kanban">
                         {columns.map((column) => (
                             <div key={column} className="col">
                                 <div className="colHead">
-                                    <span className="colTitle">{column}</span>
+                                    <span className="colTitle">{statusLabels[column]}</span>
                                     <span className="colCount">
                                         {visibleTasks.filter((task) => task.status === column).length}
                                     </span>
@@ -352,9 +470,36 @@ export default function Home({ user, onLogout }: Props) {
                                         .map((task) => (
                                             <article key={task.id} className="taskCard">
                                                 <div className="taskTitle">{task.title}</div>
-                                                <div className="taskMeta">
-                                                    <span className="pill">{task.due || "No due date"}</span>
-                                                    <span className="pill muted">{task.assignee || "Unassigned"}</span>
+                                                {task.description ? (
+                                                    <p className="taskDescription">{task.description}</p>
+                                                ) : null}
+                                                <div className="taskFooter">
+                                                    <div className="taskMeta">
+                                                        <span className="pill">{task.due || "마감일 없음"}</span>
+                                                        <span className="pill muted">{task.assignee || "담당자 없음"}</span>
+                                                    </div>
+                                                    <div className="taskActions">
+                                                        <button
+                                                            className="taskActionBtn"
+                                                            type="button"
+                                                            onClick={() => requireAuth(() => openEditModal(task))}
+                                                        >
+                                                            수정
+                                                        </button>
+                                                        <button
+                                                            className="taskActionBtn danger"
+                                                            type="button"
+                                                            onClick={() =>
+                                                                requireAuth(() => {
+                                                                    setDeleteConfirmTask(task);
+                                                                    setDeleteError(null);
+                                                                })
+                                                            }
+                                                            disabled={deletingTaskId === task.id}
+                                                        >
+                                                            {deletingTaskId === task.id ? "삭제 중" : "삭제"}
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </article>
                                         ))}
@@ -364,7 +509,7 @@ export default function Home({ user, onLogout }: Props) {
                                         onClick={() => requireAuth(() => openCreateModal(column))}
                                         disabled={!activeProject && viewMode !== "my-tasks"}
                                     >
-                                        + Add task
+                                        + 작업 추가
                                     </button>
                                 </div>
                             </div>
@@ -378,31 +523,31 @@ export default function Home({ user, onLogout }: Props) {
                     <div className="createModal" onClick={(event) => event.stopPropagation()}>
                         <div className="modalHeader">
                             <div>
-                                <h2>Create task</h2>
-                                <p>{activeProject ? `Project: ${activeProject.name}` : "Choose a project first."}</p>
+                                <h2>작업 만들기</h2>
+                                <p>{activeProject ? `프로젝트: ${activeProject.name}` : "프로젝트를 먼저 선택해주세요."}</p>
                             </div>
                             <button className="modalCloseBtn" type="button" onClick={closeCreateModal}>
-                                Close
+                                닫기
                             </button>
                         </div>
 
                         <form className="createForm" onSubmit={handleCreateTask}>
                             <label className="modalField">
-                                <span>Title</span>
+                                <span>제목</span>
                                 <input
                                     className="modalInput"
                                     value={form.title}
                                     onChange={(event) =>
                                         setForm((current) => ({ ...current, title: event.target.value }))
                                     }
-                                    placeholder="Write the task title"
+                                    placeholder="작업 제목을 입력하세요"
                                     disabled={isCreating}
                                 />
                             </label>
 
                             <div className="modalGrid">
                                 <label className="modalField">
-                                    <span>Status</span>
+                                    <span>상태</span>
                                     <select
                                         className="modalInput"
                                         value={form.status}
@@ -416,46 +561,46 @@ export default function Home({ user, onLogout }: Props) {
                                     >
                                         {columns.map((column) => (
                                             <option key={column} value={column}>
-                                                {column}
+                                                {statusLabels[column]}
                                             </option>
                                         ))}
                                     </select>
                                 </label>
 
                                 <label className="modalField">
-                                    <span>Assignee</span>
+                                    <span>담당자</span>
                                     <input
                                         className="modalInput"
                                         value={form.assignee}
                                         onChange={(event) =>
                                             setForm((current) => ({ ...current, assignee: event.target.value }))
                                         }
-                                        placeholder="Name"
+                                        placeholder="이름"
                                         disabled={isCreating}
                                     />
                                 </label>
                             </div>
 
                             <label className="modalField">
-                                <span>Due</span>
+                                <span>마감일</span>
                                 <input
                                     className="modalInput"
                                     value={form.due}
                                     onChange={(event) => setForm((current) => ({ ...current, due: event.target.value }))}
-                                    placeholder="Today, Tomorrow, 2026-04-10"
+                                    placeholder="오늘, 내일, 2026-04-10"
                                     disabled={isCreating}
                                 />
                             </label>
 
                             <label className="modalField">
-                                <span>Description</span>
+                                <span>설명</span>
                                 <textarea
                                     className="modalTextarea"
                                     value={form.description}
                                     onChange={(event) =>
                                         setForm((current) => ({ ...current, description: event.target.value }))
                                     }
-                                    placeholder="Optional task details"
+                                    placeholder="작업 설명을 입력하세요"
                                     disabled={isCreating}
                                 />
                             </label>
@@ -464,13 +609,156 @@ export default function Home({ user, onLogout }: Props) {
 
                             <div className="modalActions">
                                 <button className="ghostBtn" type="button" onClick={closeCreateModal} disabled={isCreating}>
-                                    Cancel
+                                    취소
                                 </button>
                                 <button className="primaryBtn" type="submit" disabled={isCreating}>
-                                    {isCreating ? "Creating..." : "Create task"}
+                                    {isCreating ? "생성 중..." : "작업 만들기"}
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            ) : null}
+
+            {editingTask ? (
+                <div className="modalBackdrop" onClick={closeEditModal}>
+                    <div className="createModal" onClick={(event) => event.stopPropagation()}>
+                        <div className="modalHeader">
+                            <div>
+                                <h2>작업 수정</h2>
+                                <p>{activeProject ? `프로젝트: ${activeProject.name}` : "프로젝트 작업"}</p>
+                            </div>
+                            <button className="modalCloseBtn" type="button" onClick={closeEditModal}>
+                                닫기
+                            </button>
+                        </div>
+
+                        <form className="createForm" onSubmit={handleUpdateTask}>
+                            <label className="modalField">
+                                <span>제목</span>
+                                <input
+                                    className="modalInput"
+                                    value={editForm.title}
+                                    onChange={(event) =>
+                                        setEditForm((current) => ({ ...current, title: event.target.value }))
+                                    }
+                                    placeholder="작업 제목을 입력하세요"
+                                    disabled={isUpdating}
+                                />
+                            </label>
+
+                            <div className="modalGrid">
+                                <label className="modalField">
+                                    <span>상태</span>
+                                    <select
+                                        className="modalInput"
+                                        value={editForm.status}
+                                        onChange={(event) =>
+                                            setEditForm((current) => ({
+                                                ...current,
+                                                status: event.target.value as TaskStatus,
+                                            }))
+                                        }
+                                        disabled={isUpdating}
+                                    >
+                                        {columns.map((column) => (
+                                            <option key={column} value={column}>
+                                                {statusLabels[column]}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="modalField">
+                                    <span>담당자</span>
+                                    <input
+                                        className="modalInput"
+                                        value={editForm.assignee}
+                                        onChange={(event) =>
+                                            setEditForm((current) => ({ ...current, assignee: event.target.value }))
+                                        }
+                                        placeholder="이름"
+                                        disabled={isUpdating}
+                                    />
+                                </label>
+                            </div>
+
+                            <label className="modalField">
+                                <span>마감일</span>
+                                <input
+                                    className="modalInput"
+                                    value={editForm.due}
+                                    onChange={(event) =>
+                                        setEditForm((current) => ({ ...current, due: event.target.value }))
+                                    }
+                                    placeholder="오늘, 내일, 2026-04-10"
+                                    disabled={isUpdating}
+                                />
+                            </label>
+
+                            <label className="modalField">
+                                <span>설명</span>
+                                <textarea
+                                    className="modalTextarea"
+                                    value={editForm.description}
+                                    onChange={(event) =>
+                                        setEditForm((current) => ({ ...current, description: event.target.value }))
+                                    }
+                                    placeholder="작업 설명을 입력하세요"
+                                    disabled={isUpdating}
+                                />
+                            </label>
+
+                            {editError ? <div className="errorBanner">{editError}</div> : null}
+
+                            <div className="modalActions">
+                                <button className="ghostBtn" type="button" onClick={closeEditModal} disabled={isUpdating}>
+                                    취소
+                                </button>
+                                <button className="primaryBtn" type="submit" disabled={isUpdating}>
+                                    {isUpdating ? "저장 중..." : "변경사항 저장"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            ) : null}
+
+            {deleteConfirmTask ? (
+                <div className="modalBackdrop" onClick={closeDeleteModal}>
+                    <div className="deleteModal" onClick={(event) => event.stopPropagation()}>
+                        <div className="modalHeader">
+                            <div>
+                                <h2>작업 삭제</h2>
+                                <p>삭제한 작업은 되돌릴 수 없습니다.</p>
+                            </div>
+                            <button className="modalCloseBtn" type="button" onClick={closeDeleteModal}>
+                                닫기
+                            </button>
+                        </div>
+
+                        <div className="deleteSummary">
+                            <div className="deleteTitle">{deleteConfirmTask.title}</div>
+                            <div className="deleteMeta">
+                                {deleteConfirmTask.due || "마감일 없음"} · {deleteConfirmTask.assignee || "담당자 없음"}
+                            </div>
+                        </div>
+
+                        {deleteError ? <div className="errorBanner">{deleteError}</div> : null}
+
+                        <div className="modalActions">
+                            <button className="ghostBtn" type="button" onClick={closeDeleteModal} disabled={deletingTaskId !== null}>
+                                취소
+                            </button>
+                            <button
+                                className="dangerBtn"
+                                type="button"
+                                onClick={() => void handleDeleteTask()}
+                                disabled={deletingTaskId !== null}
+                            >
+                                {deletingTaskId !== null ? "삭제 중..." : "작업 삭제"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : null}

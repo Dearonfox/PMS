@@ -66,7 +66,7 @@ export default function Signup() {
                 <div className="brandPane">
                     <div className="brandTop">
                         <div className="brandMark">PMS</div>
-                        <div className="brandTag">Work, organized. Simple.</div>
+                        <div className="brandTag">팀 작업을 간단하게 정리하세요.</div>
                     </div>
 
                     <div className="brandCopy">
@@ -79,7 +79,7 @@ export default function Signup() {
                     <div className="loginCard">
                         <div className="cardHeader">
                             <h1>회원가입</h1>
-                            <p>FastAPI 자체 JWT 인증 계정을 생성하세요.</p>
+                            <p>이메일과 비밀번호로 사용할 계정을 생성하세요.</p>
                         </div>
 
                         {error && <div className="errorBox">{error}</div>}
@@ -147,4 +147,3 @@ export default function Signup() {
         </div>
     );
 }
-

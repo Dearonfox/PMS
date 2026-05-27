@@ -82,21 +82,21 @@ export default function Login({ onLogin }: Props) {
                 <div className="brandPane">
                     <div className="brandTop">
                         <div className="brandMark">PMS</div>
-                        <div className="brandTag">Work, organized. Simple.</div>
+                        <div className="brandTag">팀 작업을 간단하게 정리하세요.</div>
                     </div>
 
                     <div className="brandCopy">
                         <h2>팀 작업을 한 눈에.</h2>
-                        <p>Space → Project → Task 흐름으로 업무를 정리하고, 진행률과 담당자를 빠르게 공유하세요.</p>
+                        <p>스페이스 → 프로젝트 → 작업 흐름으로 업무를 정리하고, 진행률과 담당자를 빠르게 공유하세요.</p>
 
                         <div className="featureList">
                             <div className="featureItem">
                                 <span className="dot" />
-                                <span>FastAPI 자체 JWT 인증</span>
+                                <span>자체 토큰 기반 로그인</span>
                             </div>
                             <div className="featureItem">
                                 <span className="dot" />
-                                <span>프로젝트/태스크/서브태스크 구조</span>
+                                <span>프로젝트/작업/하위 작업 구조</span>
                             </div>
                             <div className="featureItem">
                                 <span className="dot" />
@@ -160,7 +160,7 @@ export default function Login({ onLogin }: Props) {
                             </div>
                         </form>
 
-                        <div className="finePrint">로그인 후 JWT 토큰으로 보호된 API를 호출합니다.</div>
+                        <div className="finePrint">로그인 후 인증 토큰으로 보호된 서버 기능을 사용합니다.</div>
                     </div>
 
                     <div className="miniFooter">
@@ -171,4 +171,3 @@ export default function Login({ onLogin }: Props) {
         </div>
     );
 }
-
