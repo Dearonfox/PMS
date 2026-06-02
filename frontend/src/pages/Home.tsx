@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import type { DragEvent, FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type { AuthUser } from "../App";
@@ -122,6 +122,10 @@ export default function Home({ user, onLogout }: Props) {
     const [deleteConfirmTask, setDeleteConfirmTask] = useState<Task | null>(null);
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
+    const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+    const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
+    const [dropTargetStatus, setDropTargetStatus] = useState<TaskStatus | null>(null);
+    const [statusChangeError, setStatusChangeError] = useState<string | null>(null);
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [projectForm, setProjectForm] = useState<ProjectForm>(emptyProjectForm());
@@ -165,15 +169,37 @@ export default function Home({ user, onLogout }: Props) {
 
     const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0] ?? null;
     const backendUserId = user?.id ?? null;
+    const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
+    const selectedTaskProject = selectedTask
+        ? projects.find((project) => project.id === selectedTask.projectId) ?? null
+        : null;
+    const normalizedQuery = query.trim().toLowerCase();
 
-    const visibleTasks = tasks
-        .filter((task) => {
-            if (viewMode === "my-tasks") {
-                return backendUserId !== null && task.creatorId === backendUserId;
-            }
-            return task.projectId === activeProject?.id;
-        })
-        .filter((task) => task.title.toLowerCase().includes(query.toLowerCase()));
+    const scopedTasks = tasks.filter((task) => {
+        if (viewMode === "my-tasks") {
+            return backendUserId !== null && task.creatorId === backendUserId;
+        }
+        return task.projectId === activeProject?.id;
+    });
+
+    const visibleTasks = scopedTasks.filter((task) => {
+        if (!normalizedQuery) {
+            return true;
+        }
+
+        const projectName = projects.find((project) => project.id === task.projectId)?.name ?? "";
+        return [
+            task.title,
+            task.description,
+            task.assignee,
+            task.due,
+            statusLabels[task.status],
+            projectName,
+        ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+    });
+    const isSearching = normalizedQuery.length > 0;
 
     const requireAuth = (action: () => void) => {
         if (!user) {
@@ -240,6 +266,14 @@ export default function Home({ user, onLogout }: Props) {
         setEditingTask(task);
         setEditForm(formFromTask(task));
         setEditError(null);
+    };
+
+    const openTaskDetail = (task: Task) => {
+        setSelectedTaskId(task.id);
+    };
+
+    const closeTaskDetail = () => {
+        setSelectedTaskId(null);
     };
 
     const closeEditModal = () => {
@@ -395,6 +429,83 @@ export default function Home({ user, onLogout }: Props) {
         }
     };
 
+    const handleTaskDragStart = (event: DragEvent<HTMLElement>, task: Task) => {
+        if (!user) {
+            event.preventDefault();
+            return;
+        }
+
+        setDraggingTaskId(task.id);
+        setStatusChangeError(null);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", String(task.id));
+    };
+
+    const handleColumnDragOver = (event: DragEvent<HTMLDivElement>, status: TaskStatus) => {
+        if (draggingTaskId === null) {
+            return;
+        }
+
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        setDropTargetStatus(status);
+    };
+
+    const handleTaskDrop = async (event: DragEvent<HTMLDivElement>, nextStatus: TaskStatus) => {
+        event.preventDefault();
+
+        const taskId = Number(event.dataTransfer.getData("text/plain") || draggingTaskId);
+        const task = tasks.find((item) => item.id === taskId);
+        setDraggingTaskId(null);
+        setDropTargetStatus(null);
+
+        if (!task || task.status === nextStatus) {
+            return;
+        }
+
+        if (!user) {
+            requireAuth(() => undefined);
+            return;
+        }
+
+        const previousTasks = tasks;
+        setStatusChangeError(null);
+        setTasks((current) =>
+            current.map((item) => (item.id === task.id ? { ...item, status: nextStatus } : item)),
+        );
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/tasks/${task.id}`, {
+                method: "PATCH",
+                headers: authHeaders(),
+                body: JSON.stringify({
+                    title: task.title,
+                    project_id: task.projectId,
+                    status: nextStatus,
+                    assignee: task.assignee,
+                    due: task.due,
+                    description: task.description,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("작업 상태 변경에 실패했습니다.");
+            }
+
+            const updatedTask = mapTask((await response.json()) as ApiTask);
+            setTasks((current) => current.map((item) => (item.id === updatedTask.id ? updatedTask : item)));
+        } catch (error) {
+            console.error(error);
+            setTasks(previousTasks);
+            setStatusChangeError("작업 상태를 변경할 수 없습니다. 백엔드 서버를 확인한 뒤 다시 시도해주세요.");
+        }
+    };
+
+    const handleTaskDragEnd = () => {
+        setDraggingTaskId(null);
+        setDropTargetStatus(null);
+    };
+
     const closeDeleteModal = () => {
         if (deletingTaskId !== null) {
             return;
@@ -431,6 +542,9 @@ export default function Home({ user, onLogout }: Props) {
                 throw new Error("프로젝트 삭제에 실패했습니다.");
             }
 
+            if (selectedTask?.projectId === deleteConfirmProject.id) {
+                setSelectedTaskId(null);
+            }
             setProjects((current) => {
                 const nextProjects = current.filter((project) => project.id !== deleteConfirmProject.id);
                 setActiveProjectId((currentId) => {
@@ -471,6 +585,7 @@ export default function Home({ user, onLogout }: Props) {
             }
 
             setTasks((current) => current.filter((item) => item.id !== deleteConfirmTask.id));
+            setSelectedTaskId((current) => (current === deleteConfirmTask.id ? null : current));
             setDeleteConfirmTask(null);
         } catch (error) {
             console.error(error);
@@ -610,10 +725,20 @@ export default function Home({ user, onLogout }: Props) {
                         <div className="searchWrap">
                             <input
                                 className="searchInput"
-                                placeholder="작업 검색"
+                                placeholder="제목, 설명, 담당자 검색"
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
                             />
+                            {query ? (
+                                <button
+                                    className="searchClearBtn"
+                                    type="button"
+                                    onClick={() => setQuery("")}
+                                    title="검색어 지우기"
+                                >
+                                    지우기
+                                </button>
+                            ) : null}
                         </div>
                         <button
                             className="primaryBtn"
@@ -633,17 +758,33 @@ export default function Home({ user, onLogout }: Props) {
                                 ? "현재 로그인한 계정이 만든 작업만 모아서 보여줍니다."
                                 : "백엔드에서 불러온 실제 데이터입니다. 새 작업을 만들면 선택한 상태 컬럼에 바로 표시됩니다."}
                         </p>
+                        <div className="boardSummary">
+                            {isSearching
+                                ? `검색 결과 ${visibleTasks.length}개 / 전체 ${scopedTasks.length}개`
+                                : `표시 중인 작업 ${visibleTasks.length}개`}
+                        </div>
                     </div>
 
                     {loading ? <div className="infoBanner">프로젝트와 작업을 불러오는 중입니다...</div> : null}
                     {loadError ? <div className="errorBanner">{loadError}</div> : null}
+                    {statusChangeError ? <div className="errorBanner">{statusChangeError}</div> : null}
                     {!loading && !loadError && projects.length === 0 ? (
                         <div className="infoBanner">아직 백엔드에 프로젝트가 없습니다.</div>
+                    ) : null}
+                    {!loading && !loadError && isSearching && visibleTasks.length === 0 ? (
+                        <div className="infoBanner">
+                            `{query.trim()}`에 맞는 작업이 없습니다. 제목, 설명, 담당자, 마감일을 다시 확인해보세요.
+                        </div>
                     ) : null}
 
                     <div className="kanban">
                         {columns.map((column) => (
-                            <div key={column} className="col">
+                            <div
+                                key={column}
+                                className={`col ${dropTargetStatus === column ? "colDropTarget" : ""}`}
+                                onDragOver={(event) => handleColumnDragOver(event, column)}
+                                onDrop={(event) => void handleTaskDrop(event, column)}
+                            >
                                 <div className="colHead">
                                     <span className="colTitle">{statusLabels[column]}</span>
                                     <span className="colCount">
@@ -655,7 +796,16 @@ export default function Home({ user, onLogout }: Props) {
                                     {visibleTasks
                                         .filter((task) => task.status === column)
                                         .map((task) => (
-                                            <article key={task.id} className="taskCard">
+                                            <article
+                                                key={task.id}
+                                                className={`taskCard ${selectedTaskId === task.id ? "taskCardSelected" : ""} ${
+                                                    draggingTaskId === task.id ? "taskCardDragging" : ""
+                                                }`}
+                                                draggable={Boolean(user)}
+                                                onDragStart={(event) => handleTaskDragStart(event, task)}
+                                                onDragEnd={handleTaskDragEnd}
+                                                onClick={() => openTaskDetail(task)}
+                                            >
                                                 <div className="taskTitle">{task.title}</div>
                                                 {task.description ? (
                                                     <p className="taskDescription">{task.description}</p>
@@ -669,19 +819,23 @@ export default function Home({ user, onLogout }: Props) {
                                                         <button
                                                             className="taskActionBtn"
                                                             type="button"
-                                                            onClick={() => requireAuth(() => openEditModal(task))}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                requireAuth(() => openEditModal(task));
+                                                            }}
                                                         >
                                                             수정
                                                         </button>
                                                         <button
                                                             className="taskActionBtn danger"
                                                             type="button"
-                                                            onClick={() =>
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
                                                                 requireAuth(() => {
                                                                     setDeleteConfirmTask(task);
                                                                     setDeleteError(null);
-                                                                })
-                                                            }
+                                                                });
+                                                            }}
                                                             disabled={deletingTaskId === task.id}
                                                         >
                                                             {deletingTaskId === task.id ? "삭제 중" : "삭제"}
@@ -704,6 +858,63 @@ export default function Home({ user, onLogout }: Props) {
                     </div>
                 </section>
             </main>
+
+            {selectedTask ? (
+                <aside className="taskDetailPanel" aria-label="작업 상세">
+                    <div className="detailHeader">
+                        <div>
+                            <div className="detailEyebrow">{selectedTaskProject?.name ?? "프로젝트"}</div>
+                            <h2>{selectedTask.title}</h2>
+                        </div>
+                        <button className="detailCloseBtn" type="button" onClick={closeTaskDetail} title="상세 닫기">
+                            닫기
+                        </button>
+                    </div>
+
+                    <div className="detailActions">
+                        <button className="primaryBtn" type="button" onClick={() => requireAuth(() => openEditModal(selectedTask))}>
+                            수정
+                        </button>
+                        <button
+                            className="dangerBtn"
+                            type="button"
+                            onClick={() =>
+                                requireAuth(() => {
+                                    setDeleteConfirmTask(selectedTask);
+                                    setDeleteError(null);
+                                })
+                            }
+                            disabled={deletingTaskId === selectedTask.id}
+                        >
+                            삭제
+                        </button>
+                    </div>
+
+                    <div className="detailGrid">
+                        <div className="detailField">
+                            <span>상태</span>
+                            <strong>{statusLabels[selectedTask.status]}</strong>
+                        </div>
+                        <div className="detailField">
+                            <span>담당자</span>
+                            <strong>{selectedTask.assignee || "담당자 없음"}</strong>
+                        </div>
+                        <div className="detailField">
+                            <span>마감일</span>
+                            <strong>{selectedTask.due || "마감일 없음"}</strong>
+                        </div>
+                        <div className="detailField">
+                            <span>작성자 ID</span>
+                            <strong>{selectedTask.creatorId}</strong>
+                        </div>
+                    </div>
+
+                    <section className="detailSection">
+                        <h3>설명</h3>
+                        <p>{selectedTask.description || "아직 설명이 없습니다."}</p>
+                    </section>
+                </aside>
+            ) : null}
 
             {isCreateOpen ? (
                 <div className="modalBackdrop" onClick={closeCreateModal}>
