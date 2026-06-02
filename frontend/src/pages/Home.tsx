@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type { AuthUser } from "../App";
@@ -9,7 +10,7 @@ type Props = {
     onLogout: () => void;
 };
 
-type Project = { id: number; name: string; emoji?: string };
+type Project = { id: number; name: string; emoji?: string | null; description?: string | null };
 type TaskStatus = "Todo" | "In Progress" | "Done";
 type ViewMode = "home" | "my-tasks";
 type Task = {
@@ -23,7 +24,7 @@ type Task = {
     creatorId: number;
 };
 
-type ApiProject = { id: number; name: string; emoji?: string };
+type ApiProject = { id: number; name: string; emoji?: string | null; description?: string | null };
 type ApiTask = {
     id: number;
     title: string;
@@ -43,6 +44,12 @@ type TaskForm = {
     description: string;
 };
 
+type ProjectForm = {
+    name: string;
+    emoji: string;
+    description: string;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
 const columns: TaskStatus[] = ["Todo", "In Progress", "Done"];
 const ACCESS_TOKEN_KEY = "pms_access_token";
@@ -58,6 +65,18 @@ const emptyForm = (status: TaskStatus): TaskForm => ({
     assignee: "",
     due: "",
     description: "",
+});
+
+const emptyProjectForm = (): ProjectForm => ({
+    name: "",
+    emoji: "",
+    description: "",
+});
+
+const formFromProject = (project: Project): ProjectForm => ({
+    name: project.name,
+    emoji: project.emoji ?? "",
+    description: project.description ?? "",
 });
 
 const formFromTask = (task: Task): TaskForm => ({
@@ -103,6 +122,14 @@ export default function Home({ user, onLogout }: Props) {
     const [deleteConfirmTask, setDeleteConfirmTask] = useState<Task | null>(null);
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
+    const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+    const [editingProject, setEditingProject] = useState<Project | null>(null);
+    const [projectForm, setProjectForm] = useState<ProjectForm>(emptyProjectForm());
+    const [projectError, setProjectError] = useState<string | null>(null);
+    const [isSavingProject, setIsSavingProject] = useState(false);
+    const [deleteConfirmProject, setDeleteConfirmProject] = useState<Project | null>(null);
+    const [projectDeleteError, setProjectDeleteError] = useState<string | null>(null);
+    const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
 
     useEffect(() => {
         const loadBoard = async () => {
@@ -176,6 +203,30 @@ export default function Home({ user, onLogout }: Props) {
         setIsCreateOpen(true);
     };
 
+    const openCreateProjectModal = () => {
+        setEditingProject(null);
+        setProjectForm(emptyProjectForm());
+        setProjectError(null);
+        setIsProjectModalOpen(true);
+    };
+
+    const openEditProjectModal = (project: Project) => {
+        setEditingProject(project);
+        setProjectForm(formFromProject(project));
+        setProjectError(null);
+        setIsProjectModalOpen(true);
+    };
+
+    const closeProjectModal = () => {
+        if (isSavingProject) {
+            return;
+        }
+
+        setIsProjectModalOpen(false);
+        setEditingProject(null);
+        setProjectError(null);
+    };
+
     const closeCreateModal = () => {
         if (isCreating) {
             return;
@@ -200,7 +251,7 @@ export default function Home({ user, onLogout }: Props) {
         setEditError(null);
     };
 
-    const handleCreateTask = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleCreateTask = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         if (!activeProject) {
@@ -246,7 +297,61 @@ export default function Home({ user, onLogout }: Props) {
         }
     };
 
-    const handleUpdateTask = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSaveProject = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (!projectForm.name.trim()) {
+            setProjectError("프로젝트 이름을 입력해주세요.");
+            return;
+        }
+
+        setIsSavingProject(true);
+        setProjectError(null);
+
+        try {
+            const response = await fetch(
+                editingProject ? `${API_BASE_URL}/projects/${editingProject.id}` : `${API_BASE_URL}/projects`,
+                {
+                    method: editingProject ? "PATCH" : "POST",
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        name: projectForm.name.trim(),
+                        emoji: projectForm.emoji.trim() || null,
+                        description: projectForm.description.trim() || null,
+                    }),
+                },
+            );
+
+            if (response.status === 409) {
+                setProjectError("같은 이름의 프로젝트가 이미 있습니다.");
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error("프로젝트 저장에 실패했습니다.");
+            }
+
+            const savedProject = (await response.json()) as ApiProject;
+            setProjects((current) => {
+                if (editingProject) {
+                    return current.map((project) => (project.id === savedProject.id ? savedProject : project));
+                }
+                return [...current, savedProject];
+            });
+            setActiveProjectId(savedProject.id);
+            setViewMode("home");
+            setIsProjectModalOpen(false);
+            setEditingProject(null);
+            setProjectForm(emptyProjectForm());
+        } catch (error) {
+            console.error(error);
+            setProjectError("프로젝트를 저장할 수 없습니다. 백엔드 서버를 확인한 뒤 다시 시도해주세요.");
+        } finally {
+            setIsSavingProject(false);
+        }
+    };
+
+    const handleUpdateTask = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         if (!editingTask) {
@@ -297,6 +402,54 @@ export default function Home({ user, onLogout }: Props) {
 
         setDeleteConfirmTask(null);
         setDeleteError(null);
+    };
+
+    const closeProjectDeleteModal = () => {
+        if (deletingProjectId !== null) {
+            return;
+        }
+
+        setDeleteConfirmProject(null);
+        setProjectDeleteError(null);
+    };
+
+    const handleDeleteProject = async () => {
+        if (!deleteConfirmProject) {
+            return;
+        }
+
+        setDeletingProjectId(deleteConfirmProject.id);
+        setProjectDeleteError(null);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/projects/${deleteConfirmProject.id}`, {
+                method: "DELETE",
+                headers: authHeaders(),
+            });
+
+            if (!response.ok) {
+                throw new Error("프로젝트 삭제에 실패했습니다.");
+            }
+
+            setProjects((current) => {
+                const nextProjects = current.filter((project) => project.id !== deleteConfirmProject.id);
+                setActiveProjectId((currentId) => {
+                    if (currentId !== deleteConfirmProject.id) {
+                        return currentId;
+                    }
+                    return nextProjects[0]?.id ?? null;
+                });
+                return nextProjects;
+            });
+            setTasks((current) => current.filter((task) => task.projectId !== deleteConfirmProject.id));
+            setDeleteConfirmProject(null);
+            setViewMode("home");
+        } catch (error) {
+            console.error(error);
+            setProjectDeleteError("프로젝트를 삭제할 수 없습니다. 백엔드 서버를 확인한 뒤 다시 시도해주세요.");
+        } finally {
+            setDeletingProjectId(null);
+        }
     };
 
     const handleDeleteTask = async () => {
@@ -362,20 +515,54 @@ export default function Home({ user, onLogout }: Props) {
                     </button>
                 </nav>
 
-                <div className="sbSectionTitle">프로젝트</div>
+                <div className="sbSectionHeader">
+                    <span className="sbSectionTitle">프로젝트</span>
+                    <button
+                        className="sbAddProjectBtn"
+                        type="button"
+                        title="프로젝트 추가"
+                        onClick={() => requireAuth(openCreateProjectModal)}
+                    >
+                        +
+                    </button>
+                </div>
                 <div className="sbProjects">
                     {projects.map((project) => (
-                        <button
-                            key={project.id}
-                            className={`sbProjectItem ${project.id === activeProject?.id ? "sbProjectItemActive" : ""}`}
-                            onClick={() => {
-                                setViewMode("home");
-                                setActiveProjectId(project.id);
-                            }}
-                        >
-                            <span className="sbEmoji">{project.emoji ?? "[ ]"}</span>
-                            <span className="sbProjectName">{project.name}</span>
-                        </button>
+                        <div key={project.id} className="sbProjectRow">
+                            <button
+                                className={`sbProjectItem ${project.id === activeProject?.id ? "sbProjectItemActive" : ""}`}
+                                onClick={() => {
+                                    setViewMode("home");
+                                    setActiveProjectId(project.id);
+                                }}
+                            >
+                                <span className="sbEmoji">{project.emoji ?? "[ ]"}</span>
+                                <span className="sbProjectName">{project.name}</span>
+                            </button>
+                            <div className="sbProjectActions">
+                                <button
+                                    className="sbProjectActionBtn"
+                                    type="button"
+                                    title="프로젝트 수정"
+                                    onClick={() => requireAuth(() => openEditProjectModal(project))}
+                                >
+                                    수정
+                                </button>
+                                <button
+                                    className="sbProjectActionBtn danger"
+                                    type="button"
+                                    title="프로젝트 삭제"
+                                    onClick={() =>
+                                        requireAuth(() => {
+                                            setDeleteConfirmProject(project);
+                                            setProjectDeleteError(null);
+                                        })
+                                    }
+                                >
+                                    삭제
+                                </button>
+                            </div>
+                        </div>
                     ))}
                 </div>
 
@@ -757,6 +944,135 @@ export default function Home({ user, onLogout }: Props) {
                                 disabled={deletingTaskId !== null}
                             >
                                 {deletingTaskId !== null ? "삭제 중..." : "작업 삭제"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {isProjectModalOpen ? (
+                <div className="modalBackdrop" onClick={closeProjectModal}>
+                    <div className="createModal" onClick={(event) => event.stopPropagation()}>
+                        <div className="modalHeader">
+                            <div>
+                                <h2>{editingProject ? "프로젝트 수정" : "프로젝트 만들기"}</h2>
+                                <p>
+                                    {editingProject
+                                        ? "프로젝트 이름, 아이콘, 설명을 수정합니다."
+                                        : "새 프로젝트를 만들고 바로 보드에 추가합니다."}
+                                </p>
+                            </div>
+                            <button className="modalCloseBtn" type="button" onClick={closeProjectModal}>
+                                닫기
+                            </button>
+                        </div>
+
+                        <form className="createForm" onSubmit={handleSaveProject}>
+                            <div className="modalGrid">
+                                <label className="modalField">
+                                    <span>이름</span>
+                                    <input
+                                        className="modalInput"
+                                        value={projectForm.name}
+                                        onChange={(event) =>
+                                            setProjectForm((current) => ({ ...current, name: event.target.value }))
+                                        }
+                                        placeholder="프로젝트 이름"
+                                        disabled={isSavingProject}
+                                    />
+                                </label>
+
+                                <label className="modalField">
+                                    <span>아이콘</span>
+                                    <input
+                                        className="modalInput"
+                                        value={projectForm.emoji}
+                                        onChange={(event) =>
+                                            setProjectForm((current) => ({ ...current, emoji: event.target.value }))
+                                        }
+                                        placeholder="[앱]"
+                                        disabled={isSavingProject}
+                                    />
+                                </label>
+                            </div>
+
+                            <label className="modalField">
+                                <span>설명</span>
+                                <textarea
+                                    className="modalTextarea"
+                                    value={projectForm.description}
+                                    onChange={(event) =>
+                                        setProjectForm((current) => ({ ...current, description: event.target.value }))
+                                    }
+                                    placeholder="프로젝트 설명을 입력하세요"
+                                    disabled={isSavingProject}
+                                />
+                            </label>
+
+                            {projectError ? <div className="errorBanner">{projectError}</div> : null}
+
+                            <div className="modalActions">
+                                <button
+                                    className="ghostBtn"
+                                    type="button"
+                                    onClick={closeProjectModal}
+                                    disabled={isSavingProject}
+                                >
+                                    취소
+                                </button>
+                                <button className="primaryBtn" type="submit" disabled={isSavingProject}>
+                                    {isSavingProject
+                                        ? "저장 중..."
+                                        : editingProject
+                                          ? "변경사항 저장"
+                                          : "프로젝트 만들기"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            ) : null}
+
+            {deleteConfirmProject ? (
+                <div className="modalBackdrop" onClick={closeProjectDeleteModal}>
+                    <div className="deleteModal" onClick={(event) => event.stopPropagation()}>
+                        <div className="modalHeader">
+                            <div>
+                                <h2>프로젝트 삭제</h2>
+                                <p>프로젝트에 포함된 작업도 함께 삭제됩니다.</p>
+                            </div>
+                            <button className="modalCloseBtn" type="button" onClick={closeProjectDeleteModal}>
+                                닫기
+                            </button>
+                        </div>
+
+                        <div className="deleteSummary">
+                            <div className="deleteTitle">
+                                {deleteConfirmProject.emoji ?? "[ ]"} {deleteConfirmProject.name}
+                            </div>
+                            <div className="deleteMeta">
+                                {deleteConfirmProject.description || "설명 없음"}
+                            </div>
+                        </div>
+
+                        {projectDeleteError ? <div className="errorBanner">{projectDeleteError}</div> : null}
+
+                        <div className="modalActions">
+                            <button
+                                className="ghostBtn"
+                                type="button"
+                                onClick={closeProjectDeleteModal}
+                                disabled={deletingProjectId !== null}
+                            >
+                                취소
+                            </button>
+                            <button
+                                className="dangerBtn"
+                                type="button"
+                                onClick={() => void handleDeleteProject()}
+                                disabled={deletingProjectId !== null}
+                            >
+                                {deletingProjectId !== null ? "삭제 중..." : "프로젝트 삭제"}
                             </button>
                         </div>
                     </div>

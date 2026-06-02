@@ -1,14 +1,20 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
-from app.models.project import Project
+from app.models.project import Project, ProjectMember
+from app.models.space import Space
 from app.models.task import Task as TaskModel
 from app.models.user import User
 from app.schemas.auth import SignupRequest
 from app.schemas.project import Project as ProjectSchema
+from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.schemas.task import Task, TaskCreate, TaskUpdate
 from app.schemas.user import UserProfile, UserSyncRequest
+
+
+class DuplicateProjectNameError(Exception):
+    pass
 
 
 def _to_project_schema(project: Project) -> ProjectSchema:
@@ -35,7 +41,7 @@ def _to_user_profile(user: User) -> UserProfile:
 
 
 def list_projects(db: Session) -> list[ProjectSchema]:
-    projects = db.scalars(select(Project).order_by(Project.id.asc())).all()
+    projects = db.scalars(select(Project).where(Project.status == "active").order_by(Project.id.asc())).all()
     return [_to_project_schema(project) for project in projects]
 
 
@@ -48,6 +54,86 @@ def get_project(db: Session, project_id: int) -> ProjectSchema | None:
 
 def has_project(db: Session, project_id: int) -> bool:
     return db.get(Project, project_id) is not None
+
+
+def _get_or_create_default_space(db: Session, user_id: int) -> Space:
+    space = db.scalar(select(Space).where(Space.status == "active").order_by(Space.id.asc()).limit(1))
+    if space is not None:
+        return space
+
+    space = Space(
+        name="PMS Workspace",
+        description="Default workspace.",
+        creator_id=user_id,
+    )
+    db.add(space)
+    db.flush()
+    return space
+
+
+def create_project(db: Session, payload: ProjectCreate, creator_id: int) -> ProjectSchema | None:
+    space = _get_or_create_default_space(db, creator_id)
+    existing_project = db.scalar(
+        select(Project).where(
+            Project.space_id == space.id,
+            Project.name == payload.name,
+            Project.status == "active",
+        )
+    )
+    if existing_project is not None:
+        return None
+
+    project = Project(
+        space_id=space.id,
+        name=payload.name,
+        emoji=payload.emoji,
+        description=payload.description,
+        creator_id=creator_id,
+    )
+    db.add(project)
+    db.flush()
+    db.add(ProjectMember(project_id=project.id, user_id=creator_id, role="admin"))
+    db.commit()
+    db.refresh(project)
+    return _to_project_schema(project)
+
+
+def update_project(db: Session, project_id: int, payload: ProjectUpdate) -> ProjectSchema | None:
+    project = db.get(Project, project_id)
+    if project is None or project.status != "active":
+        return None
+
+    updates = payload.model_dump(exclude_unset=True)
+    if "name" in updates:
+        existing_project = db.scalar(
+            select(Project).where(
+                Project.space_id == project.space_id,
+                Project.name == updates["name"],
+                Project.status == "active",
+                Project.id != project_id,
+            )
+        )
+        if existing_project is not None:
+            raise DuplicateProjectNameError
+
+    for field, value in updates.items():
+        setattr(project, field, value)
+
+    db.commit()
+    db.refresh(project)
+    return _to_project_schema(project)
+
+
+def delete_project(db: Session, project_id: int) -> bool:
+    project = db.get(Project, project_id)
+    if project is None or project.status != "active":
+        return False
+
+    db.execute(delete(TaskModel).where(TaskModel.project_id == project_id))
+    db.execute(delete(ProjectMember).where(ProjectMember.project_id == project_id))
+    db.delete(project)
+    db.commit()
+    return True
 
 
 def list_tasks(db: Session, project_id: int | None = None) -> list[Task]:

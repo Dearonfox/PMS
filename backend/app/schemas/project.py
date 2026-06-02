@@ -1,4 +1,16 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    emoji: str | None = Field(default=None, max_length=20)
+    description: str | None = None
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    emoji: str | None = Field(default=None, max_length=20)
+    description: str | None = None
 
 
 class Project(BaseModel):
@@ -7,3 +19,4 @@ class Project(BaseModel):
     id: int
     name: str
     emoji: str | None = None
+    description: str | None = None

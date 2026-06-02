@@ -56,10 +56,32 @@
     border-color: rgba(255, 255, 255, 0.10);
 }
 
+.sbSectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 8px 0 12px;
+}
+
 .sbSectionTitle {
-    padding: 8px 12px 0;
     font-size: 12px;
     color: rgba(255, 255, 255, 0.55);
+}
+
+.sbAddProjectBtn {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.78);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+.sbAddProjectBtn:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.94);
 }
 
 .sbProjects {
@@ -68,9 +90,18 @@
     padding: 0 6px;
 }
 
+.sbProjectRow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
 .sbProjectItem {
+    flex: 1 1 auto;
+    min-width: 0;
     height: 38px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid transparent;
     background: transparent;
     color: rgba(255, 255, 255, 0.82);
@@ -87,7 +118,53 @@
 }
 
 .sbEmoji { width: 22px; display: inline-flex; justify-content: center; }
-.sbProjectName { font-size: 13.5px; }
+.sbProjectName {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13.5px;
+}
+
+.sbProjectActions {
+    display: flex;
+    gap: 2px;
+    flex: 0 0 auto;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 140ms ease;
+}
+.sbProjectRow:hover .sbProjectActions,
+.sbProjectActions:focus-within {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.sbProjectActionBtn {
+    height: 28px;
+    min-width: 34px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.56);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 6px;
+}
+.sbProjectActionBtn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.88);
+}
+.sbProjectActionBtn.danger {
+    color: rgba(255, 190, 190, 0.70);
+}
+.sbProjectActionBtn.danger:hover {
+    background: rgba(255, 107, 107, 0.12);
+    border-color: rgba(255, 107, 107, 0.20);
+    color: rgba(255, 225, 225, 0.96);
+}
 
 .sbFooter {
     margin-top: auto;
