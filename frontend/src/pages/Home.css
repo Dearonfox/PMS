@@ -34,6 +34,98 @@
 .sbLogo { font-weight: 900; letter-spacing: 0.6px; font-size: 20px; }
 .sbSub { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
 
+.spaceSwitcher {
+    display: grid;
+    gap: 8px;
+    margin: 0 6px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+}
+
+.spaceSwitcherHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.spaceIconBtn {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.80);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+}
+.spaceIconBtn:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.94);
+}
+
+.spaceSelect {
+    width: 100%;
+    min-height: 36px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.20);
+    color: rgba(255, 255, 255, 0.90);
+    padding: 0 10px;
+    outline: none;
+}
+.spaceSelect:focus {
+    border-color: rgba(168, 208, 255, 0.55);
+    box-shadow: 0 0 0 3px rgba(90, 169, 255, 0.12);
+}
+
+.spaceActions {
+    display: flex;
+    gap: 6px;
+}
+
+.spaceActionBtn,
+.spaceCreateBtn {
+    min-height: 30px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.78);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 0 10px;
+}
+.spaceActionBtn {
+    flex: 1;
+}
+.spaceCreateBtn {
+    width: 100%;
+}
+.spaceActionBtn:hover,
+.spaceCreateBtn:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.92);
+}
+.spaceActionBtn.danger {
+    color: rgba(255, 190, 190, 0.72);
+}
+.spaceActionBtn.danger:hover {
+    background: rgba(255, 107, 107, 0.11);
+    border-color: rgba(255, 107, 107, 0.20);
+    color: rgba(255, 225, 225, 0.96);
+}
+.spaceActionBtn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 .sbNav {
     display: grid;
     gap: 6px;
@@ -83,6 +175,10 @@
 .sbAddProjectBtn:hover {
     background: rgba(255, 255, 255, 0.10);
     color: rgba(255, 255, 255, 0.94);
+}
+.sbAddProjectBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .sbProjects {
@@ -345,6 +441,44 @@
     color: rgba(255, 232, 232, 0.96);
 }
 
+.emptyActionPanel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    max-width: 760px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 18px;
+    margin-bottom: 16px;
+}
+
+.emptyActionPanel h2 {
+    margin: 4px 0 6px;
+    font-size: 22px;
+}
+
+.emptyActionPanel p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.64);
+    line-height: 1.55;
+}
+
+.emptyActionPanel .primaryBtn,
+.emptyActionPanel .ghostBtn {
+    flex: 0 0 auto;
+    min-width: 132px;
+    padding: 0 14px;
+}
+
+.emptyEyebrow {
+    color: rgba(168, 208, 255, 0.84);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
 /* Kanban (Asana-style: horizontal columns + scroll) */
 .kanban {
     display: flex;
@@ -517,6 +651,399 @@
     cursor: not-allowed;
 }
 
+.inboxLayout {
+    display: grid;
+    gap: 16px;
+    max-width: 980px;
+}
+
+.inboxHero {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 18px;
+}
+
+.inboxEyebrow {
+    color: rgba(168, 208, 255, 0.84);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.inboxHero h2 {
+    margin: 6px 0;
+    font-size: 28px;
+}
+
+.inboxHero p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.64);
+}
+
+.inboxStats {
+    display: flex;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+.inboxStats div {
+    min-width: 86px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(0, 0, 0, 0.18);
+    padding: 12px;
+}
+
+.inboxStats strong {
+    display: block;
+    font-size: 24px;
+}
+
+.inboxStats span {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.inboxSection {
+    display: grid;
+    gap: 10px;
+}
+
+.inboxSectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.inboxSectionHeader h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.inboxSectionHeader span {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.inboxList {
+    display: grid;
+    gap: 10px;
+}
+
+.inboxItem {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: center;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(0, 0, 0, 0.20);
+    padding: 14px;
+    cursor: pointer;
+}
+
+.inboxItem:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(0, 0, 0, 0.26);
+}
+
+.inboxItemMain {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.inboxItemMain strong,
+.inboxItemMain p {
+    overflow-wrap: anywhere;
+}
+
+.inboxItemMain p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 12.5px;
+}
+
+.inboxItemMeta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    max-width: 360px;
+}
+
+.inboxItemMeta span,
+.dueBadge {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 8px;
+}
+
+.dueBadge {
+    justify-self: flex-start;
+}
+
+.dueBadge-overdue {
+    border-color: rgba(255, 107, 107, 0.34);
+    background: rgba(255, 107, 107, 0.14);
+    color: rgba(255, 225, 225, 0.96);
+}
+
+.dueBadge-soon {
+    border-color: rgba(255, 205, 86, 0.30);
+    background: rgba(255, 205, 86, 0.12);
+    color: rgba(255, 237, 184, 0.96);
+}
+
+.emptyState {
+    border-radius: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.64);
+    padding: 18px;
+}
+
+.reportLayout {
+    display: grid;
+    gap: 16px;
+    max-width: 1080px;
+}
+
+.reportHero,
+.reportPanel {
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 18px;
+}
+
+.reportHero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.reportEyebrow {
+    color: rgba(168, 208, 255, 0.84);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.reportHero h2 {
+    margin: 6px 0;
+    font-size: 28px;
+}
+
+.reportHero p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.64);
+}
+
+.completionRing {
+    width: 128px;
+    height: 128px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    position: relative;
+}
+
+.completionRing::before {
+    content: "";
+    position: absolute;
+    inset: 11px;
+    border-radius: 50%;
+    background: rgba(10, 14, 24, 0.96);
+}
+
+.completionRing strong,
+.completionRing span {
+    position: relative;
+}
+
+.completionRing strong {
+    font-size: 28px;
+}
+
+.completionRing span {
+    margin-top: 34px;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.reportKpis {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.reportKpi {
+    min-height: 96px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(0, 0, 0, 0.20);
+    padding: 14px;
+}
+
+.reportKpi span {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.reportKpi strong {
+    display: block;
+    margin-top: 10px;
+    font-size: 30px;
+}
+
+.reportKpi.warning {
+    border-color: rgba(255, 205, 86, 0.22);
+    background: rgba(255, 205, 86, 0.08);
+}
+
+.reportSectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.reportSectionHeader h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.reportSectionHeader span {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.statusBars {
+    display: grid;
+    gap: 14px;
+}
+
+.statusBarRow {
+    display: grid;
+    gap: 8px;
+}
+
+.statusBarLabel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.statusBarLabel span {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.statusBarTrack,
+.projectProgressTrack {
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.statusBarFill,
+.projectProgressFill {
+    height: 100%;
+    min-width: 2px;
+    border-radius: inherit;
+}
+
+.statusBarFill-Todo {
+    background: rgba(255, 205, 86, 0.82);
+}
+
+.statusBarFill-InProgress {
+    background: rgba(90, 169, 255, 0.84);
+}
+
+.statusBarFill-Done,
+.projectProgressFill {
+    background: rgba(107, 220, 155, 0.82);
+}
+
+.projectReportList {
+    display: grid;
+    gap: 10px;
+}
+
+.projectReportItem {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 260px) minmax(220px, 1.1fr);
+    gap: 14px;
+    align-items: center;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(0, 0, 0, 0.18);
+    padding: 14px;
+}
+
+.projectReportTitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.projectReportTitle strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.projectReportProgress {
+    display: grid;
+    grid-template-columns: 1fr 44px;
+    gap: 10px;
+    align-items: center;
+}
+
+.projectReportProgress strong {
+    text-align: right;
+}
+
+.projectReportMeta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.projectReportMeta span {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 8px;
+}
+
 .taskDetailPanel {
     grid-column: 3;
     height: 100vh;
@@ -635,6 +1162,10 @@
     padding: 20px;
 }
 
+.memberModal {
+    width: min(760px, 100%);
+}
+
 .deleteModal {
     width: min(480px, 100%);
     border-radius: 24px;
@@ -675,6 +1206,83 @@
     gap: 14px;
 }
 
+.memberInviteForm {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 160px auto;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 14px;
+}
+
+.memberList {
+    display: grid;
+    gap: 10px;
+    max-height: min(48vh, 420px);
+    overflow: auto;
+    padding-right: 2px;
+}
+
+.memberRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(0, 0, 0, 0.18);
+    padding: 12px;
+}
+
+.memberIdentity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.smallAvatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    flex: 0 0 auto;
+}
+
+.memberIdentity strong,
+.memberIdentity span {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.memberIdentity span {
+    margin-top: 2px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 12px;
+}
+
+.memberControls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.memberRoleSelect {
+    min-height: 32px;
+    min-width: 104px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.86);
+    padding: 0 10px;
+    outline: none;
+}
+
+.memberRoleSelect:disabled {
+    opacity: 0.55;
+}
+
 .modalGrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -707,6 +1315,27 @@
 .modalTextarea:focus {
     border-color: rgba(168, 208, 255, 0.55);
     box-shadow: 0 0 0 3px rgba(90, 169, 255, 0.12);
+}
+
+.assignMeBtn {
+    justify-self: flex-start;
+    min-height: 30px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.78);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 0 10px;
+}
+.assignMeBtn:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.92);
+}
+.assignMeBtn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .modalTextarea {
@@ -785,6 +1414,18 @@
         width: min(420px, 100%);
         height: 100vh;
     }
+
+    .reportKpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .projectReportItem {
+        grid-template-columns: 1fr;
+    }
+
+    .projectReportMeta {
+        justify-content: flex-start;
+    }
 }
 
 @media (max-width: 720px) {
@@ -829,5 +1470,56 @@
     .detailField {
         grid-template-columns: 1fr;
         gap: 6px;
+    }
+
+    .reportHero,
+    .inboxHero {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .reportKpis {
+        grid-template-columns: 1fr;
+    }
+
+    .emptyActionPanel {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .emptyActionPanel .primaryBtn,
+    .emptyActionPanel .ghostBtn {
+        width: 100%;
+    }
+
+    .inboxStats {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .inboxStats div {
+        flex: 1 1 120px;
+    }
+
+    .inboxItem {
+        grid-template-columns: 1fr;
+    }
+
+    .inboxItemMeta {
+        justify-content: flex-start;
+    }
+
+    .memberInviteForm,
+    .memberRow {
+        grid-template-columns: 1fr;
+    }
+
+    .memberControls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .memberRoleSelect {
+        width: 100%;
     }
 }

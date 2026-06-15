@@ -12,6 +12,7 @@ class TaskBase(BaseModel):
     status: TaskStatus = "Todo"
     due: str | None = None
     assignee: str | None = None
+    assignee_id: int | None = None
     description: str | None = None
 
 
@@ -25,6 +26,7 @@ class TaskUpdate(BaseModel):
     status: TaskStatus | None = None
     due: str | None = None
     assignee: str | None = None
+    assignee_id: int | None = None
     description: str | None = None
 
 
