@@ -47,6 +47,7 @@
 - 2026-06-16: Space CRUD API와 프론트 Space 선택/생성/수정/삭제 UI를 추가했고, 프로젝트/작업 목록은 활성 Space 기준으로 조회합니다.
 - 2026-06-16: Space 멤버 관리 MVP를 추가했습니다. 가입된 사용자 이메일로 멤버를 추가하고 `admin/member/viewer` 역할 변경 및 제거가 가능합니다.
 - 2026-06-16: Space 역할 기반 권한 검증을 백엔드에 적용했습니다. `viewer`는 조회만, `member`는 작업 쓰기, `admin`은 Space/Project/멤버 관리가 가능합니다.
+- 2026-07-07: 프론트 Home 화면에 Space 역할 배지와 역할별 UI 제어를 추가했습니다. `admin`은 Space/Project 관리, `admin/member`는 작업 쓰기, `viewer`는 조회 중심으로 버튼/드래그를 제한합니다.
 
 ## 업데이트 규칙
 

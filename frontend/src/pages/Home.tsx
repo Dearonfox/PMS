@@ -336,8 +336,33 @@ export default function Home({ user, onLogout }: Props) {
 
     useEffect(() => {
         if (activeSpaceId === null) {
+            setSpaceMembers([]);
             return;
         }
+
+        setSpaceMembers([]);
+
+        const loadCurrentSpaceMembers = async () => {
+            setMembersError(null);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/spaces/${activeSpaceId}/members`, {
+                    headers: {
+                        Authorization: `Bearer ${window.localStorage.getItem(ACCESS_TOKEN_KEY) ?? ""}`,
+                    },
+                });
+                if (!response.ok) {
+                    throw new Error("멤버 목록을 불러오지 못했습니다.");
+                }
+
+                const membersData = ((await response.json()) as ApiSpaceMember[]).map(mapSpaceMember);
+                setSpaceMembers(membersData);
+            } catch (error) {
+                console.error(error);
+                setSpaceMembers([]);
+                setMembersError("멤버 목록을 불러올 수 없습니다. 백엔드 서버를 확인하고 다시 시도해주세요.");
+            }
+        };
 
         const loadBoard = async () => {
             setLoading(true);
@@ -379,12 +404,19 @@ export default function Home({ user, onLogout }: Props) {
             }
         };
 
+        void loadCurrentSpaceMembers();
         void loadBoard();
     }, [activeSpaceId]);
 
     const activeSpace = spaces.find((space) => space.id === activeSpaceId) ?? spaces[0] ?? null;
     const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0] ?? null;
     const backendUserId = user?.id ?? null;
+    const currentSpaceMember = spaceMembers.find((member) => member.userId === backendUserId) ?? null;
+    const currentSpaceRole = currentSpaceMember?.role ?? (activeSpace?.creatorId === backendUserId ? "admin" : null);
+    const currentSpaceRoleLabel = currentSpaceRole ? roleLabels[currentSpaceRole] : "역할 확인 중";
+    const canManageSpace = currentSpaceRole === "admin";
+    const canManageProjects = currentSpaceRole === "admin";
+    const canWriteTasks = currentSpaceRole === "admin" || currentSpaceRole === "member";
     const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
     const selectedTaskProject = selectedTask
         ? projects.find((project) => project.id === selectedTask.projectId) ?? null
@@ -967,7 +999,7 @@ export default function Home({ user, onLogout }: Props) {
     };
 
     const handleTaskDragStart = (event: DragEvent<HTMLElement>, task: Task) => {
-        if (!user) {
+        if (!user || !canWriteTasks) {
             event.preventDefault();
             return;
         }
@@ -979,7 +1011,7 @@ export default function Home({ user, onLogout }: Props) {
     };
 
     const handleColumnDragOver = (event: DragEvent<HTMLDivElement>, status: TaskStatus) => {
-        if (draggingTaskId === null) {
+        if (draggingTaskId === null || !canWriteTasks) {
             return;
         }
 
@@ -995,6 +1027,11 @@ export default function Home({ user, onLogout }: Props) {
         const task = tasks.find((item) => item.id === taskId);
         setDraggingTaskId(null);
         setDropTargetStatus(null);
+
+        if (!canWriteTasks) {
+            setStatusChangeError("이 스페이스에서 작업을 수정할 권한이 없습니다.");
+            return;
+        }
 
         if (!task || task.status === nextStatus) {
             return;
@@ -1223,37 +1260,44 @@ export default function Home({ user, onLogout }: Props) {
                                     </option>
                                 ))}
                             </select>
+                            <div className="roleBadge" title="현재 스페이스 역할">
+                                {currentSpaceRoleLabel}
+                            </div>
                             <div className="spaceActions">
-                                <button
-                                    className="spaceActionBtn"
-                                    type="button"
-                                    onClick={() => requireAuth(openMembersModal)}
-                                    disabled={!activeSpace}
-                                >
-                                    멤버
-                                </button>
-                                <button
-                                    className="spaceActionBtn"
-                                    type="button"
-                                    onClick={() => activeSpace && requireAuth(() => openEditSpaceModal(activeSpace))}
-                                    disabled={!activeSpace}
-                                >
-                                    수정
-                                </button>
-                                <button
-                                    className="spaceActionBtn danger"
-                                    type="button"
-                                    onClick={() =>
-                                        activeSpace &&
-                                        requireAuth(() => {
-                                            setDeleteConfirmSpace(activeSpace);
-                                            setSpaceDeleteError(null);
-                                        })
-                                    }
-                                    disabled={!activeSpace}
-                                >
-                                    삭제
-                                </button>
+                                {canManageSpace ? (
+                                    <>
+                                        <button
+                                            className="spaceActionBtn"
+                                            type="button"
+                                            onClick={() => requireAuth(openMembersModal)}
+                                            disabled={!activeSpace}
+                                        >
+                                            멤버
+                                        </button>
+                                        <button
+                                            className="spaceActionBtn"
+                                            type="button"
+                                            onClick={() => activeSpace && requireAuth(() => openEditSpaceModal(activeSpace))}
+                                            disabled={!activeSpace}
+                                        >
+                                            수정
+                                        </button>
+                                        <button
+                                            className="spaceActionBtn danger"
+                                            type="button"
+                                            onClick={() =>
+                                                activeSpace &&
+                                                requireAuth(() => {
+                                                    setDeleteConfirmSpace(activeSpace);
+                                                    setSpaceDeleteError(null);
+                                                })
+                                            }
+                                            disabled={!activeSpace}
+                                        >
+                                            삭제
+                                        </button>
+                                    </>
+                                ) : null}
                             </div>
                         </>
                     ) : (
@@ -1292,15 +1336,17 @@ export default function Home({ user, onLogout }: Props) {
 
                 <div className="sbSectionHeader">
                     <span className="sbSectionTitle">프로젝트</span>
-                    <button
-                        className="sbAddProjectBtn"
-                        type="button"
-                        title="프로젝트 추가"
-                        onClick={() => requireAuth(openCreateProjectModal)}
-                        disabled={!activeSpace}
-                    >
-                        +
-                    </button>
+                    {canManageProjects ? (
+                        <button
+                            className="sbAddProjectBtn"
+                            type="button"
+                            title="프로젝트 추가"
+                            onClick={() => requireAuth(openCreateProjectModal)}
+                            disabled={!activeSpace}
+                        >
+                            +
+                        </button>
+                    ) : null}
                 </div>
                 <div className="sbProjects">
                     {projects.map((project) => (
@@ -1315,29 +1361,31 @@ export default function Home({ user, onLogout }: Props) {
                                 <span className="sbEmoji">{project.emoji ?? "[ ]"}</span>
                                 <span className="sbProjectName">{project.name}</span>
                             </button>
-                            <div className="sbProjectActions">
-                                <button
-                                    className="sbProjectActionBtn"
-                                    type="button"
-                                    title="프로젝트 수정"
-                                    onClick={() => requireAuth(() => openEditProjectModal(project))}
-                                >
-                                    수정
-                                </button>
-                                <button
-                                    className="sbProjectActionBtn danger"
-                                    type="button"
-                                    title="프로젝트 삭제"
-                                    onClick={() =>
-                                        requireAuth(() => {
-                                            setDeleteConfirmProject(project);
-                                            setProjectDeleteError(null);
-                                        })
-                                    }
-                                >
-                                    삭제
-                                </button>
-                            </div>
+                            {canManageProjects ? (
+                                <div className="sbProjectActions">
+                                    <button
+                                        className="sbProjectActionBtn"
+                                        type="button"
+                                        title="프로젝트 수정"
+                                        onClick={() => requireAuth(() => openEditProjectModal(project))}
+                                    >
+                                        수정
+                                    </button>
+                                    <button
+                                        className="sbProjectActionBtn danger"
+                                        type="button"
+                                        title="프로젝트 삭제"
+                                        onClick={() =>
+                                            requireAuth(() => {
+                                                setDeleteConfirmProject(project);
+                                                setProjectDeleteError(null);
+                                            })
+                                        }
+                                    >
+                                        삭제
+                                    </button>
+                                </div>
+                            ) : null}
                         </div>
                     ))}
                 </div>
@@ -1407,13 +1455,15 @@ export default function Home({ user, onLogout }: Props) {
                                 </button>
                             ) : null}
                         </div>
-                        <button
-                            className="primaryBtn"
-                            onClick={() => requireAuth(() => openCreateModal("Todo"))}
-                            disabled={!activeProject && viewMode !== "my-tasks"}
-                        >
-                            + 새 작업
-                        </button>
+                        {canWriteTasks ? (
+                            <button
+                                className="primaryBtn"
+                                onClick={() => requireAuth(() => openCreateModal("Todo"))}
+                                disabled={!activeProject && viewMode !== "my-tasks"}
+                            >
+                                + 새 작업
+                            </button>
+                        ) : null}
                     </div>
                 </header>
 
@@ -1473,9 +1523,11 @@ export default function Home({ user, onLogout }: Props) {
                                     리포트가 같은 데이터로 바로 연결됩니다.
                                 </p>
                             </div>
-                            <button className="primaryBtn" type="button" onClick={() => requireAuth(openCreateProjectModal)}>
-                                + 프로젝트 만들기
-                            </button>
+                            {canManageProjects ? (
+                                <button className="primaryBtn" type="button" onClick={() => requireAuth(openCreateProjectModal)}>
+                                    + 프로젝트 만들기
+                                </button>
+                            ) : null}
                         </div>
                     ) : null}
                     {showSearchEmpty ? (
@@ -1501,14 +1553,16 @@ export default function Home({ user, onLogout }: Props) {
                                         : "첫 작업을 만들면 Todo 컬럼에 추가되고, 드래그로 상태를 바꿀 수 있습니다."}
                                 </p>
                             </div>
-                            <button
-                                className="primaryBtn"
-                                type="button"
-                                onClick={() => requireAuth(() => openCreateModal("Todo"))}
-                                disabled={!activeProject}
-                            >
-                                + 작업 만들기
-                            </button>
+                            {canWriteTasks ? (
+                                <button
+                                    className="primaryBtn"
+                                    type="button"
+                                    onClick={() => requireAuth(() => openCreateModal("Todo"))}
+                                    disabled={!activeProject}
+                                >
+                                    + 작업 만들기
+                                </button>
+                            ) : null}
                         </div>
                     ) : null}
 
@@ -1738,7 +1792,7 @@ export default function Home({ user, onLogout }: Props) {
                                                 className={`taskCard ${selectedTaskId === task.id ? "taskCardSelected" : ""} ${
                                                     draggingTaskId === task.id ? "taskCardDragging" : ""
                                                 }`}
-                                                draggable={Boolean(user)}
+                                                draggable={canWriteTasks}
                                                 onDragStart={(event) => handleTaskDragStart(event, task)}
                                                 onDragEnd={handleTaskDragEnd}
                                                 onClick={() => openTaskDetail(task)}
@@ -1752,43 +1806,47 @@ export default function Home({ user, onLogout }: Props) {
                                                         <span className="pill">{task.due || "마감일 없음"}</span>
                                                         <span className="pill muted">{task.assignee || "담당자 없음"}</span>
                                                     </div>
-                                                    <div className="taskActions">
-                                                        <button
-                                                            className="taskActionBtn"
-                                                            type="button"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                requireAuth(() => openEditModal(task));
-                                                            }}
-                                                        >
-                                                            수정
-                                                        </button>
-                                                        <button
-                                                            className="taskActionBtn danger"
-                                                            type="button"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                requireAuth(() => {
-                                                                    setDeleteConfirmTask(task);
-                                                                    setDeleteError(null);
-                                                                });
-                                                            }}
-                                                            disabled={deletingTaskId === task.id}
-                                                        >
-                                                            {deletingTaskId === task.id ? "삭제 중" : "삭제"}
-                                                        </button>
-                                                    </div>
+                                                    {canWriteTasks ? (
+                                                        <div className="taskActions">
+                                                            <button
+                                                                className="taskActionBtn"
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    requireAuth(() => openEditModal(task));
+                                                                }}
+                                                            >
+                                                                수정
+                                                            </button>
+                                                            <button
+                                                                className="taskActionBtn danger"
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    requireAuth(() => {
+                                                                        setDeleteConfirmTask(task);
+                                                                        setDeleteError(null);
+                                                                    });
+                                                                }}
+                                                                disabled={deletingTaskId === task.id}
+                                                            >
+                                                                {deletingTaskId === task.id ? "삭제 중" : "삭제"}
+                                                            </button>
+                                                        </div>
+                                                    ) : null}
                                                 </div>
                                             </article>
                                         ))}
 
-                                    <button
-                                        className="addCardBtn"
-                                        onClick={() => requireAuth(() => openCreateModal(column))}
-                                        disabled={!activeProject && viewMode !== "my-tasks"}
-                                    >
-                                        + 작업 추가
-                                    </button>
+                                    {canWriteTasks ? (
+                                        <button
+                                            className="addCardBtn"
+                                            onClick={() => requireAuth(() => openCreateModal(column))}
+                                            disabled={!activeProject && viewMode !== "my-tasks"}
+                                        >
+                                            + 작업 추가
+                                        </button>
+                                    ) : null}
                                 </div>
                             </div>
                         ))}
@@ -1809,24 +1867,26 @@ export default function Home({ user, onLogout }: Props) {
                         </button>
                     </div>
 
-                    <div className="detailActions">
-                        <button className="primaryBtn" type="button" onClick={() => requireAuth(() => openEditModal(selectedTask))}>
-                            수정
-                        </button>
-                        <button
-                            className="dangerBtn"
-                            type="button"
-                            onClick={() =>
-                                requireAuth(() => {
-                                    setDeleteConfirmTask(selectedTask);
-                                    setDeleteError(null);
-                                })
-                            }
-                            disabled={deletingTaskId === selectedTask.id}
-                        >
-                            삭제
-                        </button>
-                    </div>
+                    {canWriteTasks ? (
+                        <div className="detailActions">
+                            <button className="primaryBtn" type="button" onClick={() => requireAuth(() => openEditModal(selectedTask))}>
+                                수정
+                            </button>
+                            <button
+                                className="dangerBtn"
+                                type="button"
+                                onClick={() =>
+                                    requireAuth(() => {
+                                        setDeleteConfirmTask(selectedTask);
+                                        setDeleteError(null);
+                                    })
+                                }
+                                disabled={deletingTaskId === selectedTask.id}
+                            >
+                                삭제
+                            </button>
+                        </div>
+                    ) : null}
 
                     <div className="detailGrid">
                         <div className="detailField">
