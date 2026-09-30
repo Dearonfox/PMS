@@ -1308,6 +1308,7 @@ export default function Home({ user, onLogout }: Props) {
                 </div>
 
                 <nav className="sbNav">
+                    <button className="sbNavItem" onClick={() => nav("/posts")}>게시판</button>
                     <button
                         className={`sbNavItem ${viewMode === "home" ? "sbNavItemActive" : ""}`}
                         onClick={() => setViewMode("home")}

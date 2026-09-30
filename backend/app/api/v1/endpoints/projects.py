@@ -35,7 +35,7 @@ def list_projects(
 ) -> list[Project]:
     if space_id is not None:
         require_space_role(db, space_id, current_user.id, SPACE_READ_ROLES)
-    return db_store.list_projects(db, space_id=space_id)
+    return db_store.list_projects(db, user_id=current_user.id, space_id=space_id)
 
 
 @router.get("/{project_id}", response_model=Project)
@@ -106,4 +106,4 @@ def list_project_tasks(
     project = db_store.get_project(db, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    return db_store.list_tasks(db, project_id=project_id)
+    return db_store.list_tasks(db, user_id=current_user.id, project_id=project_id)

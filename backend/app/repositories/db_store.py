@@ -234,8 +234,13 @@ def remove_space_member(db: Session, space_id: int, user_id: int) -> bool:
     return True
 
 
-def list_projects(db: Session, space_id: int | None = None) -> list[ProjectSchema]:
-    query = select(Project).where(Project.status == "active").order_by(Project.id.asc())
+def list_projects(db: Session, user_id: int, space_id: int | None = None) -> list[ProjectSchema]:
+    query = (
+        select(Project)
+        .join(SpaceMember, Project.space_id == SpaceMember.space_id)
+        .where(Project.status == "active", SpaceMember.user_id == user_id)
+        .order_by(Project.id.asc())
+    )
     if space_id is not None:
         query = query.where(Project.space_id == space_id)
     projects = db.scalars(query).all()
@@ -337,12 +342,23 @@ def delete_project(db: Session, project_id: int) -> bool:
     return True
 
 
-def list_tasks(db: Session, project_id: int | None = None, space_id: int | None = None) -> list[Task]:
-    query = select(TaskModel).order_by(TaskModel.position.asc(), TaskModel.id.asc())
+def list_tasks(
+    db: Session,
+    user_id: int,
+    project_id: int | None = None,
+    space_id: int | None = None,
+) -> list[Task]:
+    query = (
+        select(TaskModel)
+        .join(Project, TaskModel.project_id == Project.id)
+        .join(SpaceMember, Project.space_id == SpaceMember.space_id)
+        .where(Project.status == "active", SpaceMember.user_id == user_id)
+        .order_by(TaskModel.position.asc(), TaskModel.id.asc())
+    )
     if project_id is not None:
         query = query.where(TaskModel.project_id == project_id)
     if space_id is not None:
-        query = query.join(Project, TaskModel.project_id == Project.id).where(Project.space_id == space_id)
+        query = query.where(Project.space_id == space_id)
     tasks = db.scalars(query).all()
     return [_to_task_schema(task) for task in tasks]
 

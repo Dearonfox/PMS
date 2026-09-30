@@ -5,6 +5,7 @@ import "./App.css";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Board from "./pages/Board";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
 const ACCESS_TOKEN_KEY = "pms_access_token";
@@ -54,10 +55,11 @@ export default function App() {
         void loadCurrentUser();
     }, []);
 
-    if (loading) return null;
+    if (loading) return <p role="status">사용자 정보를 확인하는 중…</p>;
 
     return (
         <Routes>
+            <Route path="/posts/*" element={<Board user={user} />} />
             <Route path="/" element={<Home user={user} onLogout={() => setUser(null)} />} />
             <Route path="/login" element={!user ? <Login onLogin={setUser} /> : <Navigate to="/" replace />} />
             <Route path="/signup" element={<Signup />} />

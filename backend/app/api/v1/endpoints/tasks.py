@@ -44,7 +44,12 @@ def list_tasks(
         require_space_role(db, space_id, current_user.id, SPACE_READ_ROLES)
     if project_id is not None:
         require_project_space_role(db, project_id, current_user.id, SPACE_READ_ROLES)
-    return db_store.list_tasks(db, project_id=project_id, space_id=space_id)
+    return db_store.list_tasks(
+        db,
+        user_id=current_user.id,
+        project_id=project_id,
+        space_id=space_id,
+    )
 
 
 @router.get("/{task_id}", response_model=Task)

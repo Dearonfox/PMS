@@ -49,6 +49,12 @@
 - 2026-06-16: Space 역할 기반 권한 검증을 백엔드에 적용했습니다. `viewer`는 조회만, `member`는 작업 쓰기, `admin`은 Space/Project/멤버 관리가 가능합니다.
 - 2026-07-07: 프론트 Home 화면에 Space 역할 배지와 역할별 UI 제어를 추가했습니다. `admin`은 Space/Project 관리, `admin/member`는 작업 쓰기, `viewer`는 조회 중심으로 버튼/드래그를 제한합니다.
 
+- 2026-09-07: 최신 방향은 CareerStep 이용자 게시판 추가. 기존 PMS/Space 기능은 유지하고, Space와 독립된 공개 게시판을 `/posts` 및 `/api/v1/posts`, `/api/v1/comments`로 구현. 읽기는 공개, 쓰기는 기존 JWT, 수정·삭제는 작성자만 허용.
+- 2026-09-07: 실제 DB는 MySQL(PyMySQL)+SQLAlchemy, 로컬 users.id는 INTEGER(SQL 문서의 BIGINT와 차이). 게시판 마이그레이션 `python -m app.migrate_board`는 기존 PK 타입을 반영하며 재실행 가능. 상세 구현/실행/테스트는 `docs/BOARD_IMPLEMENTATION.md` 참고.
+- 2026-09-07: React Router 진입점을 createBrowserRouter/RouterProvider로 변경하여 게시글 작성 이탈 확인(useBlocker)을 지원. JWT 저장 키 pms_access_token, 기존 fetch 및 auth/me 유지. 새 라이브러리는 추가하지 않음.
+- 2026-09-30: 프로젝트/작업 목록 저장소 쿼리를 현재 사용자의 SpaceMember 멤버십으로 제한하여, 필터 없는 목록 요청에서도 다른 Space 데이터가 노출되지 않도록 수정하고 회귀 테스트를 추가함.
+- 2026-09-30: UI 방향은 Notion/Linear/Slack/Asana 계열의 차분한 기업용 협업 도구 스타일. 밝은 회색 배경과 흰 표면, 인디고 단일 포인트, 얇은 구분선, 절제된 모서리와 그림자를 공통 토큰으로 사용하며 Home/게시판/인증 화면에 동일하게 적용함.
+
 ## 업데이트 규칙
 
 - 짧고 명확하게 적습니다.
