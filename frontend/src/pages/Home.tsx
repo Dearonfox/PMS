@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { DragEvent, FormEvent } from "react";
+import type { DragEvent, FormEvent, ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type { AuthUser } from "../App";
@@ -23,6 +23,7 @@ type Project = { id: number; spaceId: number; name: string; emoji?: string | nul
 type TaskStatus = "Todo" | "In Progress" | "Done";
 type ViewMode = "home" | "my-tasks" | "inbox" | "reporting";
 type DueState = "overdue" | "soon" | "later" | "none";
+type UiIconName = "board" | "home" | "tasks" | "inbox" | "report" | "plus" | "calendar";
 type Task = {
     id: number;
     title: string;
@@ -79,6 +80,19 @@ type MemberForm = {
     email: string;
     role: SpaceMemberRole;
 };
+
+function UiIcon({ name }: { name: UiIconName }) {
+    const paths: Record<UiIconName, ReactNode> = {
+        board: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16M15 4v16" /></>,
+        home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></>,
+        tasks: <><path d="M9 6h11M9 12h11M9 18h11" /><path d="m3 6 1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2" /></>,
+        inbox: <><path d="M4 4h16v14H4z" /><path d="M4 14h4l2 3h4l2-3h4" /></>,
+        report: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+        plus: <path d="M12 5v14M5 12h14" />,
+        calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></>,
+    };
+    return <svg className="uiIcon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
 const columns: TaskStatus[] = ["Todo", "In Progress", "Done"];
@@ -1308,30 +1322,30 @@ export default function Home({ user, onLogout }: Props) {
                 </div>
 
                 <nav className="sbNav">
-                    <button className="sbNavItem" onClick={() => nav("/posts")}>게시판</button>
+                    <button className="sbNavItem" onClick={() => nav("/posts")}><UiIcon name="board" />게시판</button>
                     <button
                         className={`sbNavItem ${viewMode === "home" ? "sbNavItemActive" : ""}`}
                         onClick={() => setViewMode("home")}
                     >
-                        홈
+                        <UiIcon name="home" />홈
                     </button>
                     <button
                         className={`sbNavItem ${viewMode === "my-tasks" ? "sbNavItemActive" : ""}`}
                         onClick={() => requireAuth(() => setViewMode("my-tasks"))}
                     >
-                        내 작업
+                        <UiIcon name="tasks" />내 작업
                     </button>
                     <button
                         className={`sbNavItem ${viewMode === "inbox" ? "sbNavItemActive" : ""}`}
                         onClick={() => requireAuth(() => setViewMode("inbox"))}
                     >
-                        받은함
+                        <UiIcon name="inbox" />받은함
                     </button>
                     <button
                         className={`sbNavItem ${viewMode === "reporting" ? "sbNavItemActive" : ""}`}
                         onClick={() => requireAuth(() => setViewMode("reporting"))}
                     >
-                        리포트
+                        <UiIcon name="report" />리포트
                     </button>
                 </nav>
 
@@ -1345,7 +1359,7 @@ export default function Home({ user, onLogout }: Props) {
                             onClick={() => requireAuth(openCreateProjectModal)}
                             disabled={!activeSpace}
                         >
-                            +
+                            <UiIcon name="plus" />
                         </button>
                     ) : null}
                 </div>
@@ -1462,7 +1476,7 @@ export default function Home({ user, onLogout }: Props) {
                                 onClick={() => requireAuth(() => openCreateModal("Todo"))}
                                 disabled={!activeProject && viewMode !== "my-tasks"}
                             >
-                                + 새 작업
+                                <UiIcon name="plus" />새 작업
                             </button>
                         ) : null}
                     </div>
@@ -1499,19 +1513,38 @@ export default function Home({ user, onLogout }: Props) {
                         </div>
                     </div>
 
+                    {viewMode === "home" && activeProject ? (
+                        <div className="projectViewBar" aria-label="프로젝트 보기">
+                            <div className="projectViewTabs">
+                                <span className="projectViewTab projectViewTabActive"><UiIcon name="board" />보드</span>
+                            </div>
+                            <div className="projectViewTools">
+                                <span>그룹: 상태</span>
+                                <span>{visibleTasks.length}개 작업</span>
+                            </div>
+                        </div>
+                    ) : null}
+
                     {loading ? <div className="infoBanner">프로젝트와 작업을 불러오는 중입니다...</div> : null}
                     {loadError ? <div className="errorBanner">{loadError}</div> : null}
                     {statusChangeError ? <div className="errorBanner">{statusChangeError}</div> : null}
                     {hasNoSpaces ? (
-                        <div className="emptyActionPanel">
-                            <div>
-                                <span className="emptyEyebrow">Workspace</span>
-                                <h2>첫 스페이스를 만들어보세요</h2>
-                                <p>스페이스는 팀이나 업무 단위로 프로젝트와 작업을 묶는 가장 큰 작업 공간입니다.</p>
+                        <div className="workspaceEmptyPanel">
+                            <div className="workspaceEmptyCopy">
+                                <div className="workspaceEmptyIcon"><UiIcon name="board" /></div>
+                                <span className="emptyEyebrow">WORKSPACE SETUP</span>
+                                <h2>팀의 첫 작업 공간을 만들어보세요</h2>
+                                <p>스페이스 하나에 프로젝트와 작업을 모아두면 팀의 진행 상황을 한곳에서 확인할 수 있습니다.</p>
+                                <button className="primaryBtn" type="button" onClick={() => requireAuth(openCreateSpaceModal)}>
+                                    <UiIcon name="plus" />스페이스 만들기
+                                </button>
                             </div>
-                            <button className="primaryBtn" type="button" onClick={() => requireAuth(openCreateSpaceModal)}>
-                                + 스페이스 만들기
-                            </button>
+                            <div className="workspaceEmptyGuide" aria-label="스페이스 생성 후 가능한 작업">
+                                <div className="workspaceGuideHeader"><span>시작 가이드</span><strong>3단계</strong></div>
+                                <div className="workspaceGuideStep workspaceGuideStepActive"><span>01</span><div><strong>스페이스 만들기</strong><small>팀과 업무의 기준 공간</small></div></div>
+                                <div className="workspaceGuideStep"><span>02</span><div><strong>프로젝트 추가</strong><small>목표와 업무 흐름 정리</small></div></div>
+                                <div className="workspaceGuideStep"><span>03</span><div><strong>작업 배정하기</strong><small>담당자와 진행 상태 관리</small></div></div>
+                            </div>
                         </div>
                     ) : null}
                     {hasNoProjects ? (
@@ -1778,6 +1811,7 @@ export default function Home({ user, onLogout }: Props) {
                                 onDrop={(event) => void handleTaskDrop(event, column)}
                             >
                                 <div className="colHead">
+                                    <span className={`colStatusDot colStatusDot-${column.replace(" ", "-").toLowerCase()}`} />
                                     <span className="colTitle">{statusLabels[column]}</span>
                                     <span className="colCount">
                                         {visibleTasks.filter((task) => task.status === column).length}
@@ -1804,8 +1838,11 @@ export default function Home({ user, onLogout }: Props) {
                                                 ) : null}
                                                 <div className="taskFooter">
                                                     <div className="taskMeta">
-                                                        <span className="pill">{task.due || "마감일 없음"}</span>
-                                                        <span className="pill muted">{task.assignee || "담당자 없음"}</span>
+                                                        <span className={`taskDueMeta taskDueMeta-${getDueState(task)}`}><UiIcon name="calendar" />{task.due || "마감일 없음"}</span>
+                                                        <span className="taskAssigneeMeta" title={task.assignee || "담당자 없음"}>
+                                                            <span className="taskAssigneeAvatar">{(task.assignee?.[0] ?? "–").toUpperCase()}</span>
+                                                            <span>{task.assignee || "미배정"}</span>
+                                                        </span>
                                                     </div>
                                                     {canWriteTasks ? (
                                                         <div className="taskActions">
@@ -1845,7 +1882,7 @@ export default function Home({ user, onLogout }: Props) {
                                             onClick={() => requireAuth(() => openCreateModal(column))}
                                             disabled={!activeProject && viewMode !== "my-tasks"}
                                         >
-                                            + 작업 추가
+                                            <UiIcon name="plus" />작업 추가
                                         </button>
                                     ) : null}
                                 </div>
