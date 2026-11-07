@@ -1,252 +1,21 @@
 import { useEffect, useState } from "react";
-import type { DragEvent, FormEvent, ReactNode } from "react";
+import type { DragEvent, FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type { AuthUser } from "../App";
+import InboxView from "../features/workspace/components/InboxView";
+import ReportingView from "../features/workspace/components/ReportingView";
+import TaskFormModal from "../features/workspace/components/TaskFormModal";
+import UiIcon from "../features/workspace/components/UiIcon";
+import { ACCESS_TOKEN_KEY, API_BASE_URL, roleLabels, statusLabels, taskStatuses as columns } from "../features/workspace/constants";
+import type { ApiProject, ApiSpace, ApiSpaceMember, ApiTask, MemberForm, Project, ProjectForm, Space, SpaceForm, SpaceMember, SpaceMemberRole, Task, TaskForm, TaskStatus, ViewMode } from "../features/workspace/types";
+import { emptyMemberForm, emptyProjectForm, emptySpaceForm, emptyTaskForm, formFromProject, formFromSpace, formFromTask, getDueState, mapProject, mapSpace, mapSpaceMember, mapTask } from "../features/workspace/utils";
 import "./Home.css";
 
 type Props = {
     user: AuthUser | null;
     onLogout: () => void;
 };
-
-type Space = { id: number; name: string; description?: string | null; creatorId: number };
-type SpaceMemberRole = "admin" | "member" | "viewer";
-type SpaceMember = {
-    spaceId: number;
-    userId: number;
-    email: string;
-    displayName: string;
-    role: SpaceMemberRole;
-};
-type Project = { id: number; spaceId: number; name: string; emoji?: string | null; description?: string | null };
-type TaskStatus = "Todo" | "In Progress" | "Done";
-type ViewMode = "home" | "my-tasks" | "inbox" | "reporting";
-type DueState = "overdue" | "soon" | "later" | "none";
-type UiIconName = "board" | "home" | "tasks" | "inbox" | "report" | "plus" | "calendar";
-type Task = {
-    id: number;
-    title: string;
-    projectId: number;
-    status: TaskStatus;
-    due?: string | null;
-    assignee?: string | null;
-    assigneeId?: number | null;
-    description?: string | null;
-    creatorId: number;
-};
-
-type ApiSpace = { id: number; name: string; description?: string | null; creator_id: number };
-type ApiSpaceMember = {
-    space_id: number;
-    user_id: number;
-    email: string;
-    display_name: string;
-    role: SpaceMemberRole;
-};
-type ApiProject = { id: number; space_id: number; name: string; emoji?: string | null; description?: string | null };
-type ApiTask = {
-    id: number;
-    title: string;
-    project_id: number;
-    status: TaskStatus;
-    due?: string | null;
-    assignee?: string | null;
-    assignee_id?: number | null;
-    description?: string | null;
-    creator_id: number;
-};
-
-type TaskForm = {
-    title: string;
-    status: TaskStatus;
-    assignee: string;
-    due: string;
-    description: string;
-};
-
-type ProjectForm = {
-    name: string;
-    emoji: string;
-    description: string;
-};
-
-type SpaceForm = {
-    name: string;
-    description: string;
-};
-
-type MemberForm = {
-    email: string;
-    role: SpaceMemberRole;
-};
-
-function UiIcon({ name }: { name: UiIconName }) {
-    const paths: Record<UiIconName, ReactNode> = {
-        board: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16M15 4v16" /></>,
-        home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></>,
-        tasks: <><path d="M9 6h11M9 12h11M9 18h11" /><path d="m3 6 1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2" /></>,
-        inbox: <><path d="M4 4h16v14H4z" /><path d="M4 14h4l2 3h4l2-3h4" /></>,
-        report: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
-        plus: <path d="M12 5v14M5 12h14" />,
-        calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></>,
-    };
-    return <svg className="uiIcon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
-}
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
-const columns: TaskStatus[] = ["Todo", "In Progress", "Done"];
-const ACCESS_TOKEN_KEY = "pms_access_token";
-const statusLabels: Record<TaskStatus, string> = {
-    Todo: "할 일",
-    "In Progress": "진행 중",
-    Done: "완료",
-};
-
-const dueStateLabels: Record<DueState, string> = {
-    overdue: "마감 지연",
-    soon: "마감 임박",
-    later: "예정",
-    none: "마감일 없음",
-};
-
-const roleLabels: Record<SpaceMemberRole, string> = {
-    admin: "관리자",
-    member: "멤버",
-    viewer: "뷰어",
-};
-
-const emptyForm = (status: TaskStatus): TaskForm => ({
-    title: "",
-    status,
-    assignee: "",
-    due: "",
-    description: "",
-});
-
-const emptyProjectForm = (): ProjectForm => ({
-    name: "",
-    emoji: "",
-    description: "",
-});
-
-const emptySpaceForm = (): SpaceForm => ({
-    name: "",
-    description: "",
-});
-
-const emptyMemberForm = (): MemberForm => ({
-    email: "",
-    role: "member",
-});
-
-const formFromSpace = (space: Space): SpaceForm => ({
-    name: space.name,
-    description: space.description ?? "",
-});
-
-const formFromProject = (project: Project): ProjectForm => ({
-    name: project.name,
-    emoji: project.emoji ?? "",
-    description: project.description ?? "",
-});
-
-const formFromTask = (task: Task): TaskForm => ({
-    title: task.title,
-    status: task.status,
-    assignee: task.assignee ?? "",
-    due: task.due ?? "",
-    description: task.description ?? "",
-});
-
-function mapSpace(space: ApiSpace): Space {
-    return {
-        id: space.id,
-        name: space.name,
-        description: space.description,
-        creatorId: space.creator_id,
-    };
-}
-
-function mapSpaceMember(member: ApiSpaceMember): SpaceMember {
-    return {
-        spaceId: member.space_id,
-        userId: member.user_id,
-        email: member.email,
-        displayName: member.display_name,
-        role: member.role,
-    };
-}
-
-function mapProject(project: ApiProject): Project {
-    return {
-        id: project.id,
-        spaceId: project.space_id,
-        name: project.name,
-        emoji: project.emoji,
-        description: project.description,
-    };
-}
-
-function mapTask(task: ApiTask): Task {
-    return {
-        id: task.id,
-        title: task.title,
-        projectId: task.project_id,
-        status: task.status,
-        due: task.due,
-        assignee: task.assignee,
-        assigneeId: task.assignee_id,
-        description: task.description,
-        creatorId: task.creator_id,
-    };
-}
-
-function parseDueDate(due?: string | null) {
-    if (!due) return null;
-
-    const normalizedDue = due.trim().toLowerCase();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (normalizedDue === "today" || normalizedDue === "오늘") {
-        return today;
-    }
-
-    if (normalizedDue === "tomorrow" || normalizedDue === "내일") {
-        const tomorrow = new Date(today);
-        tomorrow.setDate(today.getDate() + 1);
-        return tomorrow;
-    }
-
-    const parsedDate = new Date(due);
-    if (Number.isNaN(parsedDate.getTime())) {
-        return null;
-    }
-    parsedDate.setHours(0, 0, 0, 0);
-    return parsedDate;
-}
-
-function getDueState(task: Task): DueState {
-    const dueDate = parseDueDate(task.due);
-    if (!dueDate) {
-        return "none";
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / 86_400_000);
-
-    if (task.status !== "Done" && daysUntilDue < 0) {
-        return "overdue";
-    }
-
-    if (task.status !== "Done" && daysUntilDue <= 3) {
-        return "soon";
-    }
-
-    return "later";
-}
 
 export default function Home({ user, onLogout }: Props) {
     const nav = useNavigate();
@@ -264,9 +33,9 @@ export default function Home({ user, onLogout }: Props) {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
-    const [form, setForm] = useState<TaskForm>(emptyForm("Todo"));
+    const [form, setForm] = useState<TaskForm>(emptyTaskForm("Todo"));
     const [editingTask, setEditingTask] = useState<Task | null>(null);
-    const [editForm, setEditForm] = useState<TaskForm>(emptyForm("Todo"));
+    const [editForm, setEditForm] = useState<TaskForm>(emptyTaskForm("Todo"));
     const [editError, setEditError] = useState<string | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [deleteConfirmTask, setDeleteConfirmTask] = useState<Task | null>(null);
@@ -575,7 +344,7 @@ export default function Home({ user, onLogout }: Props) {
             return;
         }
 
-        setForm(emptyForm(status));
+        setForm(emptyTaskForm(status));
         setCreateError(null);
         setIsCreateOpen(true);
     };
@@ -742,7 +511,7 @@ export default function Home({ user, onLogout }: Props) {
             const createdTask = (await response.json()) as ApiTask;
             setTasks((current) => [...current, mapTask(createdTask)]);
             setIsCreateOpen(false);
-            setForm(emptyForm("Todo"));
+            setForm(emptyTaskForm("Todo"));
         } catch (error) {
             console.error(error);
             setCreateError("작업을 만들 수 없습니다. 백엔드 서버를 확인한 뒤 다시 시도해주세요.");
@@ -1601,204 +1370,29 @@ export default function Home({ user, onLogout }: Props) {
                     ) : null}
 
                     {viewMode === "inbox" && !loading && !loadError ? (
-                        <div className="inboxLayout">
-                            <section className="inboxHero">
-                                <div>
-                                    <span className="inboxEyebrow">Today</span>
-                                    <h2>{user?.display_name ?? "사용자"}님이 확인할 작업</h2>
-                                    <p>별도 알림 테이블 없이 현재 작업 데이터를 기준으로 만든 받은함입니다.</p>
-                                </div>
-                                <div className="inboxStats">
-                                    <div>
-                                        <strong>{inboxTasks.length}</strong>
-                                        <span>배정됨</span>
-                                    </div>
-                                    <div>
-                                        <strong>{inboxDueTasks.length}</strong>
-                                        <span>마감 주의</span>
-                                    </div>
-                                    <div>
-                                        <strong>{inboxDoneTasks.length}</strong>
-                                        <span>완료</span>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section className="inboxSection">
-                                <div className="inboxSectionHeader">
-                                    <h3>마감 주의</h3>
-                                    <span>{inboxDueTasks.length}개</span>
-                                </div>
-                                {inboxDueTasks.length ? (
-                                    <div className="inboxList">
-                                        {inboxDueTasks.map((task) => (
-                                            <article
-                                                key={task.id}
-                                                className="inboxItem"
-                                                onClick={() => openTaskDetail(task)}
-                                            >
-                                                <div className="inboxItemMain">
-                                                    <span className={`dueBadge dueBadge-${getDueState(task)}`}>
-                                                        {dueStateLabels[getDueState(task)]}
-                                                    </span>
-                                                    <strong>{task.title}</strong>
-                                                    <p>{task.description || "설명 없음"}</p>
-                                                </div>
-                                                <div className="inboxItemMeta">
-                                                    <span>{getProjectName(task.projectId)}</span>
-                                                    <span>{task.due || "마감일 없음"}</span>
-                                                    <span>{statusLabels[task.status]}</span>
-                                                </div>
-                                            </article>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="emptyState">지금 급하게 확인할 마감 작업이 없습니다.</div>
-                                )}
-                            </section>
-
-                            <section className="inboxSection">
-                                <div className="inboxSectionHeader">
-                                    <h3>최근 배정 작업</h3>
-                                    <span>{inboxRecentTasks.length}개</span>
-                                </div>
-                                {inboxRecentTasks.length ? (
-                                    <div className="inboxList">
-                                        {inboxRecentTasks.map((task) => (
-                                            <article
-                                                key={task.id}
-                                                className="inboxItem"
-                                                onClick={() => openTaskDetail(task)}
-                                            >
-                                                <div className="inboxItemMain">
-                                                    <span className={`dueBadge dueBadge-${getDueState(task)}`}>
-                                                        {dueStateLabels[getDueState(task)]}
-                                                    </span>
-                                                    <strong>{task.title}</strong>
-                                                    <p>{task.description || "설명 없음"}</p>
-                                                </div>
-                                                <div className="inboxItemMeta">
-                                                    <span>{getProjectName(task.projectId)}</span>
-                                                    <span>{task.assignee || "담당자 없음"}</span>
-                                                    <span>{statusLabels[task.status]}</span>
-                                                </div>
-                                            </article>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="emptyState">아직 내게 배정된 작업이 없습니다.</div>
-                                )}
-                            </section>
-                        </div>
+                        <InboxView
+                            displayName={user?.display_name ?? "사용자"}
+                            tasks={inboxTasks}
+                            dueTasks={inboxDueTasks}
+                            recentTasks={inboxRecentTasks}
+                            doneCount={inboxDoneTasks.length}
+                            getProjectName={getProjectName}
+                            onOpenTask={openTaskDetail}
+                        />
                     ) : null}
 
                     {viewMode === "reporting" && !loading && !loadError ? (
-                        <div className="reportLayout">
-                            <section className="reportHero">
-                                <div>
-                                    <span className="reportEyebrow">Overview</span>
-                                    <h2>전체 프로젝트 진행률</h2>
-                                    <p>
-                                        {isSearching
-                                            ? "검색 결과에 포함된 작업만 기준으로 집계합니다."
-                                            : "현재 등록된 모든 프로젝트와 작업을 기준으로 집계합니다."}
-                                    </p>
-                                </div>
-                                <div
-                                    className="completionRing"
-                                    style={{
-                                        background: `conic-gradient(rgba(90, 169, 255, 0.90) ${reportingCompletionRate}%, rgba(255, 255, 255, 0.08) 0)`,
-                                    }}
-                                    aria-label={`완료율 ${reportingCompletionRate}%`}
-                                >
-                                    <strong>{reportingCompletionRate}%</strong>
-                                    <span>완료율</span>
-                                </div>
-                            </section>
-
-                            <section className="reportKpis">
-                                <div className="reportKpi">
-                                    <span>전체 작업</span>
-                                    <strong>{reportingTotalCount}</strong>
-                                </div>
-                                <div className="reportKpi">
-                                    <span>할 일</span>
-                                    <strong>{reportingTodoCount}</strong>
-                                </div>
-                                <div className="reportKpi">
-                                    <span>진행 중</span>
-                                    <strong>{reportingInProgressCount}</strong>
-                                </div>
-                                <div className="reportKpi">
-                                    <span>완료</span>
-                                    <strong>{reportingDoneCount}</strong>
-                                </div>
-                                <div className="reportKpi warning">
-                                    <span>마감 주의</span>
-                                    <strong>{reportingDueRiskCount}</strong>
-                                </div>
-                            </section>
-
-                            <section className="reportPanel">
-                                <div className="reportSectionHeader">
-                                    <h3>상태별 작업 분포</h3>
-                                    <span>{reportingTotalCount}개 작업</span>
-                                </div>
-                                <div className="statusBars">
-                                    {columns.map((column) => {
-                                        const count = reportingTasks.filter((task) => task.status === column).length;
-                                        const rate = reportingTotalCount > 0 ? Math.round((count / reportingTotalCount) * 100) : 0;
-
-                                        return (
-                                            <div className="statusBarRow" key={column}>
-                                                <div className="statusBarLabel">
-                                                    <strong>{statusLabels[column]}</strong>
-                                                    <span>
-                                                        {count}개 · {rate}%
-                                                    </span>
-                                                </div>
-                                                <div className="statusBarTrack">
-                                                    <div className={`statusBarFill statusBarFill-${column.replaceAll(" ", "")}`} style={{ width: `${rate}%` }} />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </section>
-
-                            <section className="reportPanel">
-                                <div className="reportSectionHeader">
-                                    <h3>프로젝트별 현황</h3>
-                                    <span>{topProjectReports.length}개 프로젝트</span>
-                                </div>
-                                {topProjectReports.length ? (
-                                    <div className="projectReportList">
-                                        {topProjectReports.map((project) => (
-                                            <article className="projectReportItem" key={project.id}>
-                                                <div className="projectReportTitle">
-                                                    <span>{project.emoji ?? "[ ]"}</span>
-                                                    <strong>{project.name}</strong>
-                                                </div>
-                                                <div className="projectReportProgress">
-                                                    <div className="projectProgressTrack">
-                                                        <div className="projectProgressFill" style={{ width: `${project.completionRate}%` }} />
-                                                    </div>
-                                                    <strong>{project.completionRate}%</strong>
-                                                </div>
-                                                <div className="projectReportMeta">
-                                                    <span>전체 {project.taskCount}</span>
-                                                    <span>진행 {project.inProgressCount}</span>
-                                                    <span>완료 {project.doneCount}</span>
-                                                    <span>마감 주의 {project.dueRiskCount}</span>
-                                                </div>
-                                            </article>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="emptyState">리포트로 집계할 프로젝트가 없습니다.</div>
-                                )}
-                            </section>
-                        </div>
+                        <ReportingView
+                            isSearching={isSearching}
+                            tasks={reportingTasks}
+                            totalCount={reportingTotalCount}
+                            todoCount={reportingTodoCount}
+                            inProgressCount={reportingInProgressCount}
+                            doneCount={reportingDoneCount}
+                            dueRiskCount={reportingDueRiskCount}
+                            completionRate={reportingCompletionRate}
+                            projectReports={topProjectReports}
+                        />
                     ) : null}
 
                     {viewMode !== "inbox" && viewMode !== "reporting" && !hasNoSpaces && !hasNoProjects && !showBoardEmpty ? (
@@ -1953,233 +1547,31 @@ export default function Home({ user, onLogout }: Props) {
             ) : null}
 
             {isCreateOpen ? (
-                <div className="modalBackdrop" onClick={closeCreateModal}>
-                    <div className="createModal" onClick={(event) => event.stopPropagation()}>
-                        <div className="modalHeader">
-                            <div>
-                                <h2>작업 만들기</h2>
-                                <p>{activeProject ? `프로젝트: ${activeProject.name}` : "프로젝트를 먼저 선택해주세요."}</p>
-                            </div>
-                            <button className="modalCloseBtn" type="button" onClick={closeCreateModal}>
-                                닫기
-                            </button>
-                        </div>
-
-                        <form className="createForm" onSubmit={handleCreateTask}>
-                            <label className="modalField">
-                                <span>제목</span>
-                                <input
-                                    className="modalInput"
-                                    value={form.title}
-                                    onChange={(event) =>
-                                        setForm((current) => ({ ...current, title: event.target.value }))
-                                    }
-                                    placeholder="작업 제목을 입력하세요"
-                                    disabled={isCreating}
-                                />
-                            </label>
-
-                            <div className="modalGrid">
-                                <label className="modalField">
-                                    <span>상태</span>
-                                    <select
-                                        className="modalInput"
-                                        value={form.status}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                status: event.target.value as TaskStatus,
-                                            }))
-                                        }
-                                        disabled={isCreating}
-                                    >
-                                        {columns.map((column) => (
-                                            <option key={column} value={column}>
-                                                {statusLabels[column]}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-
-                                <label className="modalField">
-                                    <span>담당자</span>
-                                    <input
-                                        className="modalInput"
-                                        value={form.assignee}
-                                        onChange={(event) =>
-                                            setForm((current) => ({ ...current, assignee: event.target.value }))
-                                        }
-                                        placeholder="이름"
-                                        disabled={isCreating}
-                                    />
-                                    {user ? (
-                                        <button
-                                            className="assignMeBtn"
-                                            type="button"
-                                            onClick={() =>
-                                                setForm((current) => ({ ...current, assignee: user.display_name }))
-                                            }
-                                            disabled={isCreating}
-                                        >
-                                            나에게 배정
-                                        </button>
-                                    ) : null}
-                                </label>
-                            </div>
-
-                            <label className="modalField">
-                                <span>마감일</span>
-                                <input
-                                    className="modalInput"
-                                    value={form.due}
-                                    onChange={(event) => setForm((current) => ({ ...current, due: event.target.value }))}
-                                    placeholder="오늘, 내일, 2026-04-10"
-                                    disabled={isCreating}
-                                />
-                            </label>
-
-                            <label className="modalField">
-                                <span>설명</span>
-                                <textarea
-                                    className="modalTextarea"
-                                    value={form.description}
-                                    onChange={(event) =>
-                                        setForm((current) => ({ ...current, description: event.target.value }))
-                                    }
-                                    placeholder="작업 설명을 입력하세요"
-                                    disabled={isCreating}
-                                />
-                            </label>
-
-                            {createError ? <div className="errorBanner">{createError}</div> : null}
-
-                            <div className="modalActions">
-                                <button className="ghostBtn" type="button" onClick={closeCreateModal} disabled={isCreating}>
-                                    취소
-                                </button>
-                                <button className="primaryBtn" type="submit" disabled={isCreating}>
-                                    {isCreating ? "생성 중..." : "작업 만들기"}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                <TaskFormModal
+                    mode="create"
+                    projectName={activeProject?.name}
+                    form={form}
+                    error={createError}
+                    busy={isCreating}
+                    currentUserName={user?.display_name}
+                    onChange={setForm}
+                    onClose={closeCreateModal}
+                    onSubmit={handleCreateTask}
+                />
             ) : null}
 
             {editingTask ? (
-                <div className="modalBackdrop" onClick={closeEditModal}>
-                    <div className="createModal" onClick={(event) => event.stopPropagation()}>
-                        <div className="modalHeader">
-                            <div>
-                                <h2>작업 수정</h2>
-                                <p>{activeProject ? `프로젝트: ${activeProject.name}` : "프로젝트 작업"}</p>
-                            </div>
-                            <button className="modalCloseBtn" type="button" onClick={closeEditModal}>
-                                닫기
-                            </button>
-                        </div>
-
-                        <form className="createForm" onSubmit={handleUpdateTask}>
-                            <label className="modalField">
-                                <span>제목</span>
-                                <input
-                                    className="modalInput"
-                                    value={editForm.title}
-                                    onChange={(event) =>
-                                        setEditForm((current) => ({ ...current, title: event.target.value }))
-                                    }
-                                    placeholder="작업 제목을 입력하세요"
-                                    disabled={isUpdating}
-                                />
-                            </label>
-
-                            <div className="modalGrid">
-                                <label className="modalField">
-                                    <span>상태</span>
-                                    <select
-                                        className="modalInput"
-                                        value={editForm.status}
-                                        onChange={(event) =>
-                                            setEditForm((current) => ({
-                                                ...current,
-                                                status: event.target.value as TaskStatus,
-                                            }))
-                                        }
-                                        disabled={isUpdating}
-                                    >
-                                        {columns.map((column) => (
-                                            <option key={column} value={column}>
-                                                {statusLabels[column]}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-
-                                <label className="modalField">
-                                    <span>담당자</span>
-                                    <input
-                                        className="modalInput"
-                                        value={editForm.assignee}
-                                        onChange={(event) =>
-                                            setEditForm((current) => ({ ...current, assignee: event.target.value }))
-                                        }
-                                        placeholder="이름"
-                                        disabled={isUpdating}
-                                    />
-                                    {user ? (
-                                        <button
-                                            className="assignMeBtn"
-                                            type="button"
-                                            onClick={() =>
-                                                setEditForm((current) => ({ ...current, assignee: user.display_name }))
-                                            }
-                                            disabled={isUpdating}
-                                        >
-                                            나에게 배정
-                                        </button>
-                                    ) : null}
-                                </label>
-                            </div>
-
-                            <label className="modalField">
-                                <span>마감일</span>
-                                <input
-                                    className="modalInput"
-                                    value={editForm.due}
-                                    onChange={(event) =>
-                                        setEditForm((current) => ({ ...current, due: event.target.value }))
-                                    }
-                                    placeholder="오늘, 내일, 2026-04-10"
-                                    disabled={isUpdating}
-                                />
-                            </label>
-
-                            <label className="modalField">
-                                <span>설명</span>
-                                <textarea
-                                    className="modalTextarea"
-                                    value={editForm.description}
-                                    onChange={(event) =>
-                                        setEditForm((current) => ({ ...current, description: event.target.value }))
-                                    }
-                                    placeholder="작업 설명을 입력하세요"
-                                    disabled={isUpdating}
-                                />
-                            </label>
-
-                            {editError ? <div className="errorBanner">{editError}</div> : null}
-
-                            <div className="modalActions">
-                                <button className="ghostBtn" type="button" onClick={closeEditModal} disabled={isUpdating}>
-                                    취소
-                                </button>
-                                <button className="primaryBtn" type="submit" disabled={isUpdating}>
-                                    {isUpdating ? "저장 중..." : "변경사항 저장"}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                <TaskFormModal
+                    mode="edit"
+                    projectName={activeProject?.name}
+                    form={editForm}
+                    error={editError}
+                    busy={isUpdating}
+                    currentUserName={user?.display_name}
+                    onChange={setEditForm}
+                    onClose={closeEditModal}
+                    onSubmit={handleUpdateTask}
+                />
             ) : null}
 
             {deleteConfirmTask ? (
