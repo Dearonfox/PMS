@@ -4,7 +4,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type { AuthUser } from "../App";
 import InboxView from "../features/workspace/components/InboxView";
+import DeleteConfirmModal from "../features/workspace/components/DeleteConfirmModal";
+import MembersModal from "../features/workspace/components/MembersModal";
+import ProjectFormModal from "../features/workspace/components/ProjectFormModal";
 import ReportingView from "../features/workspace/components/ReportingView";
+import SpaceFormModal from "../features/workspace/components/SpaceFormModal";
 import TaskFormModal from "../features/workspace/components/TaskFormModal";
 import UiIcon from "../features/workspace/components/UiIcon";
 import { ACCESS_TOKEN_KEY, API_BASE_URL, roleLabels, statusLabels, taskStatuses as columns } from "../features/workspace/constants";
@@ -1575,388 +1579,87 @@ export default function Home({ user, onLogout }: Props) {
             ) : null}
 
             {deleteConfirmTask ? (
-                <div className="modalBackdrop" onClick={closeDeleteModal}>
-                    <div className="deleteModal" onClick={(event) => event.stopPropagation()}>
-                        <div className="modalHeader">
-                            <div>
-                                <h2>작업 삭제</h2>
-                                <p>삭제한 작업은 되돌릴 수 없습니다.</p>
-                            </div>
-                            <button className="modalCloseBtn" type="button" onClick={closeDeleteModal}>
-                                닫기
-                            </button>
-                        </div>
-
-                        <div className="deleteSummary">
-                            <div className="deleteTitle">{deleteConfirmTask.title}</div>
-                            <div className="deleteMeta">
-                                {deleteConfirmTask.due || "마감일 없음"} · {deleteConfirmTask.assignee || "담당자 없음"}
-                            </div>
-                        </div>
-
-                        {deleteError ? <div className="errorBanner">{deleteError}</div> : null}
-
-                        <div className="modalActions">
-                            <button className="ghostBtn" type="button" onClick={closeDeleteModal} disabled={deletingTaskId !== null}>
-                                취소
-                            </button>
-                            <button
-                                className="dangerBtn"
-                                type="button"
-                                onClick={() => void handleDeleteTask()}
-                                disabled={deletingTaskId !== null}
-                            >
-                                {deletingTaskId !== null ? "삭제 중..." : "작업 삭제"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <DeleteConfirmModal
+                    title="작업 삭제"
+                    description="삭제한 작업은 되돌릴 수 없습니다."
+                    summaryTitle={deleteConfirmTask.title}
+                    summaryMeta={`${deleteConfirmTask.due || "마감일 없음"} · ${deleteConfirmTask.assignee || "담당자 없음"}`}
+                    error={deleteError}
+                    busy={deletingTaskId !== null}
+                    confirmLabel="작업 삭제"
+                    onClose={closeDeleteModal}
+                    onConfirm={() => void handleDeleteTask()}
+                />
             ) : null}
 
             {isProjectModalOpen ? (
-                <div className="modalBackdrop" onClick={closeProjectModal}>
-                    <div className="createModal" onClick={(event) => event.stopPropagation()}>
-                        <div className="modalHeader">
-                            <div>
-                                <h2>{editingProject ? "프로젝트 수정" : "프로젝트 만들기"}</h2>
-                                <p>
-                                    {editingProject
-                                        ? "프로젝트 이름, 아이콘, 설명을 수정합니다."
-                                        : "새 프로젝트를 만들고 바로 보드에 추가합니다."}
-                                </p>
-                            </div>
-                            <button className="modalCloseBtn" type="button" onClick={closeProjectModal}>
-                                닫기
-                            </button>
-                        </div>
-
-                        <form className="createForm" onSubmit={handleSaveProject}>
-                            <div className="modalGrid">
-                                <label className="modalField">
-                                    <span>이름</span>
-                                    <input
-                                        className="modalInput"
-                                        value={projectForm.name}
-                                        onChange={(event) =>
-                                            setProjectForm((current) => ({ ...current, name: event.target.value }))
-                                        }
-                                        placeholder="프로젝트 이름"
-                                        disabled={isSavingProject}
-                                    />
-                                </label>
-
-                                <label className="modalField">
-                                    <span>아이콘</span>
-                                    <input
-                                        className="modalInput"
-                                        value={projectForm.emoji}
-                                        onChange={(event) =>
-                                            setProjectForm((current) => ({ ...current, emoji: event.target.value }))
-                                        }
-                                        placeholder="[앱]"
-                                        disabled={isSavingProject}
-                                    />
-                                </label>
-                            </div>
-
-                            <label className="modalField">
-                                <span>설명</span>
-                                <textarea
-                                    className="modalTextarea"
-                                    value={projectForm.description}
-                                    onChange={(event) =>
-                                        setProjectForm((current) => ({ ...current, description: event.target.value }))
-                                    }
-                                    placeholder="프로젝트 설명을 입력하세요"
-                                    disabled={isSavingProject}
-                                />
-                            </label>
-
-                            {projectError ? <div className="errorBanner">{projectError}</div> : null}
-
-                            <div className="modalActions">
-                                <button
-                                    className="ghostBtn"
-                                    type="button"
-                                    onClick={closeProjectModal}
-                                    disabled={isSavingProject}
-                                >
-                                    취소
-                                </button>
-                                <button className="primaryBtn" type="submit" disabled={isSavingProject}>
-                                    {isSavingProject
-                                        ? "저장 중..."
-                                        : editingProject
-                                          ? "변경사항 저장"
-                                          : "프로젝트 만들기"}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                <ProjectFormModal
+                    editingProject={editingProject}
+                    form={projectForm}
+                    error={projectError}
+                    busy={isSavingProject}
+                    onChange={setProjectForm}
+                    onClose={closeProjectModal}
+                    onSubmit={handleSaveProject}
+                />
             ) : null}
 
             {deleteConfirmProject ? (
-                <div className="modalBackdrop" onClick={closeProjectDeleteModal}>
-                    <div className="deleteModal" onClick={(event) => event.stopPropagation()}>
-                        <div className="modalHeader">
-                            <div>
-                                <h2>프로젝트 삭제</h2>
-                                <p>프로젝트에 포함된 작업도 함께 삭제됩니다.</p>
-                            </div>
-                            <button className="modalCloseBtn" type="button" onClick={closeProjectDeleteModal}>
-                                닫기
-                            </button>
-                        </div>
-
-                        <div className="deleteSummary">
-                            <div className="deleteTitle">
-                                {deleteConfirmProject.emoji ?? "[ ]"} {deleteConfirmProject.name}
-                            </div>
-                            <div className="deleteMeta">
-                                {deleteConfirmProject.description || "설명 없음"}
-                            </div>
-                        </div>
-
-                        {projectDeleteError ? <div className="errorBanner">{projectDeleteError}</div> : null}
-
-                        <div className="modalActions">
-                            <button
-                                className="ghostBtn"
-                                type="button"
-                                onClick={closeProjectDeleteModal}
-                                disabled={deletingProjectId !== null}
-                            >
-                                취소
-                            </button>
-                            <button
-                                className="dangerBtn"
-                                type="button"
-                                onClick={() => void handleDeleteProject()}
-                                disabled={deletingProjectId !== null}
-                            >
-                                {deletingProjectId !== null ? "삭제 중..." : "프로젝트 삭제"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <DeleteConfirmModal
+                    title="프로젝트 삭제"
+                    description="프로젝트에 포함된 작업도 함께 삭제됩니다."
+                    summaryTitle={`${deleteConfirmProject.emoji ?? "[ ]"} ${deleteConfirmProject.name}`}
+                    summaryMeta={deleteConfirmProject.description || "설명 없음"}
+                    error={projectDeleteError}
+                    busy={deletingProjectId !== null}
+                    confirmLabel="프로젝트 삭제"
+                    onClose={closeProjectDeleteModal}
+                    onConfirm={() => void handleDeleteProject()}
+                />
             ) : null}
 
             {isMembersModalOpen ? (
-                <div className="modalBackdrop" onClick={closeMembersModal}>
-                    <div className="createModal memberModal" onClick={(event) => event.stopPropagation()}>
-                        <div className="modalHeader">
-                            <div>
-                                <h2>멤버 관리</h2>
-                                <p>{activeSpace ? `${activeSpace.name} 스페이스 멤버를 관리합니다.` : "스페이스를 선택해주세요."}</p>
-                            </div>
-                            <button className="modalCloseBtn" type="button" onClick={closeMembersModal}>
-                                닫기
-                            </button>
-                        </div>
-
-                        <form className="memberInviteForm" onSubmit={handleAddSpaceMember}>
-                            <label className="modalField">
-                                <span>이메일</span>
-                                <input
-                                    className="modalInput"
-                                    type="email"
-                                    value={memberForm.email}
-                                    onChange={(event) =>
-                                        setMemberForm((current) => ({ ...current, email: event.target.value }))
-                                    }
-                                    placeholder="user@example.com"
-                                    disabled={isAddingMember}
-                                />
-                            </label>
-
-                            <label className="modalField">
-                                <span>역할</span>
-                                <select
-                                    className="modalInput"
-                                    value={memberForm.role}
-                                    onChange={(event) =>
-                                        setMemberForm((current) => ({
-                                            ...current,
-                                            role: event.target.value as SpaceMemberRole,
-                                        }))
-                                    }
-                                    disabled={isAddingMember}
-                                >
-                                    {Object.entries(roleLabels).map(([role, label]) => (
-                                        <option key={role} value={role}>
-                                            {label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
-                            <button className="primaryBtn" type="submit" disabled={isAddingMember}>
-                                {isAddingMember ? "추가 중..." : "멤버 추가"}
-                            </button>
-                        </form>
-
-                        {membersError ? <div className="errorBanner">{membersError}</div> : null}
-
-                        <div className="memberList">
-                            {membersLoading ? (
-                                <div className="emptyState">멤버 목록을 불러오는 중입니다...</div>
-                            ) : spaceMembers.length ? (
-                                spaceMembers.map((member) => (
-                                    <article className="memberRow" key={member.userId}>
-                                        <div className="memberIdentity">
-                                            <div className="avatar smallAvatar">{member.displayName[0]?.toUpperCase() ?? "U"}</div>
-                                            <div>
-                                                <strong>{member.displayName}</strong>
-                                                <span>{member.email}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="memberControls">
-                                            <select
-                                                className="memberRoleSelect"
-                                                value={member.role}
-                                                onChange={(event) =>
-                                                    void handleUpdateSpaceMemberRole(
-                                                        member,
-                                                        event.target.value as SpaceMemberRole,
-                                                    )
-                                                }
-                                                disabled={updatingMemberId === member.userId || removingMemberId === member.userId}
-                                            >
-                                                {Object.entries(roleLabels).map(([role, label]) => (
-                                                    <option key={role} value={role}>
-                                                        {label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <button
-                                                className="taskActionBtn danger"
-                                                type="button"
-                                                onClick={() => void handleRemoveSpaceMember(member)}
-                                                disabled={removingMemberId === member.userId}
-                                            >
-                                                {removingMemberId === member.userId ? "제거 중..." : "제거"}
-                                            </button>
-                                        </div>
-                                    </article>
-                                ))
-                            ) : (
-                                <div className="emptyState">아직 이 스페이스에 멤버가 없습니다.</div>
-                            )}
-                        </div>
-                    </div>
-                </div>
+                <MembersModal
+                    activeSpace={activeSpace}
+                    members={spaceMembers}
+                    form={memberForm}
+                    loading={membersLoading}
+                    error={membersError}
+                    adding={isAddingMember}
+                    updatingMemberId={updatingMemberId}
+                    removingMemberId={removingMemberId}
+                    onFormChange={setMemberForm}
+                    onClose={closeMembersModal}
+                    onSubmit={handleAddSpaceMember}
+                    onRoleChange={(member, role) => void handleUpdateSpaceMemberRole(member, role)}
+                    onRemove={(member) => void handleRemoveSpaceMember(member)}
+                />
             ) : null}
 
             {isSpaceModalOpen ? (
-                <div className="modalBackdrop" onClick={closeSpaceModal}>
-                    <div className="createModal" onClick={(event) => event.stopPropagation()}>
-                        <div className="modalHeader">
-                            <div>
-                                <h2>{editingSpace ? "스페이스 수정" : "스페이스 만들기"}</h2>
-                                <p>
-                                    {editingSpace
-                                        ? "스페이스 이름과 설명을 수정합니다."
-                                        : "팀이나 업무 단위로 프로젝트를 묶는 새 스페이스를 만듭니다."}
-                                </p>
-                            </div>
-                            <button className="modalCloseBtn" type="button" onClick={closeSpaceModal}>
-                                닫기
-                            </button>
-                        </div>
-
-                        <form className="createForm" onSubmit={handleSaveSpace}>
-                            <label className="modalField">
-                                <span>이름</span>
-                                <input
-                                    className="modalInput"
-                                    value={spaceForm.name}
-                                    onChange={(event) =>
-                                        setSpaceForm((current) => ({ ...current, name: event.target.value }))
-                                    }
-                                    placeholder="스페이스 이름"
-                                    disabled={isSavingSpace}
-                                />
-                            </label>
-
-                            <label className="modalField">
-                                <span>설명</span>
-                                <textarea
-                                    className="modalTextarea"
-                                    value={spaceForm.description}
-                                    onChange={(event) =>
-                                        setSpaceForm((current) => ({ ...current, description: event.target.value }))
-                                    }
-                                    placeholder="스페이스 설명을 입력하세요"
-                                    disabled={isSavingSpace}
-                                />
-                            </label>
-
-                            {spaceError ? <div className="errorBanner">{spaceError}</div> : null}
-
-                            <div className="modalActions">
-                                <button
-                                    className="ghostBtn"
-                                    type="button"
-                                    onClick={closeSpaceModal}
-                                    disabled={isSavingSpace}
-                                >
-                                    취소
-                                </button>
-                                <button className="primaryBtn" type="submit" disabled={isSavingSpace}>
-                                    {isSavingSpace
-                                        ? "저장 중..."
-                                        : editingSpace
-                                          ? "변경사항 저장"
-                                          : "스페이스 만들기"}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                <SpaceFormModal
+                    editingSpace={editingSpace}
+                    form={spaceForm}
+                    error={spaceError}
+                    busy={isSavingSpace}
+                    onChange={setSpaceForm}
+                    onClose={closeSpaceModal}
+                    onSubmit={handleSaveSpace}
+                />
             ) : null}
 
             {deleteConfirmSpace ? (
-                <div className="modalBackdrop" onClick={closeSpaceDeleteModal}>
-                    <div className="deleteModal" onClick={(event) => event.stopPropagation()}>
-                        <div className="modalHeader">
-                            <div>
-                                <h2>스페이스 삭제</h2>
-                                <p>스페이스에 포함된 프로젝트와 작업도 함께 삭제됩니다.</p>
-                            </div>
-                            <button className="modalCloseBtn" type="button" onClick={closeSpaceDeleteModal}>
-                                닫기
-                            </button>
-                        </div>
-
-                        <div className="deleteSummary">
-                            <div className="deleteTitle">{deleteConfirmSpace.name}</div>
-                            <div className="deleteMeta">{deleteConfirmSpace.description || "설명 없음"}</div>
-                        </div>
-
-                        {spaceDeleteError ? <div className="errorBanner">{spaceDeleteError}</div> : null}
-
-                        <div className="modalActions">
-                            <button
-                                className="ghostBtn"
-                                type="button"
-                                onClick={closeSpaceDeleteModal}
-                                disabled={deletingSpaceId !== null}
-                            >
-                                취소
-                            </button>
-                            <button
-                                className="dangerBtn"
-                                type="button"
-                                onClick={() => void handleDeleteSpace()}
-                                disabled={deletingSpaceId !== null}
-                            >
-                                {deletingSpaceId !== null ? "삭제 중..." : "스페이스 삭제"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <DeleteConfirmModal
+                    title="스페이스 삭제"
+                    description="스페이스에 포함된 프로젝트와 작업도 함께 삭제됩니다."
+                    summaryTitle={deleteConfirmSpace.name}
+                    summaryMeta={deleteConfirmSpace.description || "설명 없음"}
+                    error={spaceDeleteError}
+                    busy={deletingSpaceId !== null}
+                    confirmLabel="스페이스 삭제"
+                    onClose={closeSpaceDeleteModal}
+                    onConfirm={() => void handleDeleteSpace()}
+                />
             ) : null}
         </div>
     );
