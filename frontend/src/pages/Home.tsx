@@ -9,9 +9,10 @@ import MembersModal from "../features/workspace/components/MembersModal";
 import ProjectFormModal from "../features/workspace/components/ProjectFormModal";
 import ReportingView from "../features/workspace/components/ReportingView";
 import SpaceFormModal from "../features/workspace/components/SpaceFormModal";
+import useWorkspaceView from "../features/workspace/hooks/useWorkspaceView";
 import TaskFormModal from "../features/workspace/components/TaskFormModal";
 import UiIcon from "../features/workspace/components/UiIcon";
-import { ACCESS_TOKEN_KEY, API_BASE_URL, roleLabels, statusLabels, taskStatuses as columns } from "../features/workspace/constants";
+import { ACCESS_TOKEN_KEY, API_BASE_URL, statusLabels, taskStatuses as columns } from "../features/workspace/constants";
 import type { ApiProject, ApiSpace, ApiSpaceMember, ApiTask, MemberForm, Project, ProjectForm, Space, SpaceForm, SpaceMember, SpaceMemberRole, Task, TaskForm, TaskStatus, ViewMode } from "../features/workspace/types";
 import { emptyMemberForm, emptyProjectForm, emptySpaceForm, emptyTaskForm, formFromProject, formFromSpace, formFromTask, getDueState, mapProject, mapSpace, mapSpaceMember, mapTask } from "../features/workspace/utils";
 import "./Home.css";
@@ -195,119 +196,17 @@ export default function Home({ user, onLogout }: Props) {
         void loadBoard();
     }, [activeSpaceId]);
 
-    const activeSpace = spaces.find((space) => space.id === activeSpaceId) ?? spaces[0] ?? null;
-    const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0] ?? null;
-    const backendUserId = user?.id ?? null;
-    const currentSpaceMember = spaceMembers.find((member) => member.userId === backendUserId) ?? null;
-    const currentSpaceRole = currentSpaceMember?.role ?? (activeSpace?.creatorId === backendUserId ? "admin" : null);
-    const currentSpaceRoleLabel = currentSpaceRole ? roleLabels[currentSpaceRole] : "역할 확인 중";
-    const canManageSpace = currentSpaceRole === "admin";
-    const canManageProjects = currentSpaceRole === "admin";
-    const canWriteTasks = currentSpaceRole === "admin" || currentSpaceRole === "member";
-    const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
-    const selectedTaskProject = selectedTask
-        ? projects.find((project) => project.id === selectedTask.projectId) ?? null
-        : null;
-    const normalizedQuery = query.trim().toLowerCase();
-    const normalizedUserDisplayName = user?.display_name.trim().toLowerCase() ?? null;
-    const normalizedUserEmail = user?.email.trim().toLowerCase() ?? null;
-
-    const isTaskAssignedToCurrentUser = (task: Task) => {
-        if (backendUserId !== null && task.assigneeId === backendUserId) {
-            return true;
-        }
-
-        const normalizedAssignee = task.assignee?.trim().toLowerCase();
-        return Boolean(
-            normalizedAssignee &&
-                (normalizedAssignee === normalizedUserDisplayName || normalizedAssignee === normalizedUserEmail),
-        );
-    };
-
-    const scopedTasks = tasks.filter((task) => {
-        if (viewMode === "my-tasks" || viewMode === "inbox") {
-            return backendUserId !== null && isTaskAssignedToCurrentUser(task);
-        }
-        if (viewMode === "reporting") {
-            return true;
-        }
-        return task.projectId === activeProject?.id;
+    const {
+        activeSpace, activeProject, currentSpaceRoleLabel,
+        canManageSpace, canManageProjects, canWriteTasks, selectedTask, selectedTaskProject,
+        scopedTasks, visibleTasks, isSearching, inboxTasks, inboxDueTasks, inboxRecentTasks, inboxDoneTasks,
+        getProjectName, reportingTasks, reportingTotalCount, reportingDoneCount, reportingTodoCount,
+        reportingInProgressCount, reportingDueRiskCount, reportingCompletionRate, topProjectReports,
+        hasNoSpaces, hasNoProjects, showSearchEmpty, showBoardEmpty,
+    } = useWorkspaceView({
+        spaces, projects, tasks, spaceMembers, activeSpaceId, activeProjectId, selectedTaskId,
+        viewMode, query, user, loading, loadError,
     });
-
-    const visibleTasks = scopedTasks.filter((task) => {
-        if (!normalizedQuery) {
-            return true;
-        }
-
-        const projectName = projects.find((project) => project.id === task.projectId)?.name ?? "";
-        return [
-            task.title,
-            task.description,
-            task.assignee,
-            task.due,
-            statusLabels[task.status],
-            projectName,
-        ]
-            .filter(Boolean)
-            .some((value) => String(value).toLowerCase().includes(normalizedQuery));
-    });
-    const isSearching = normalizedQuery.length > 0;
-    const inboxTasks = isSearching ? visibleTasks : tasks.filter(isTaskAssignedToCurrentUser);
-    const inboxDueTasks = inboxTasks
-        .filter((task) => task.status !== "Done")
-        .filter((task) => {
-            const dueState = getDueState(task);
-            return dueState === "overdue" || dueState === "soon";
-        });
-    const inboxRecentTasks = [...inboxTasks].sort((first, second) => second.id - first.id).slice(0, 6);
-    const inboxDoneTasks = inboxTasks.filter((task) => task.status === "Done");
-
-    const getProjectName = (projectId: number) =>
-        projects.find((project) => project.id === projectId)?.name ?? "프로젝트 없음";
-    const reportingTasks = viewMode === "reporting" && isSearching ? visibleTasks : tasks;
-    const reportingTotalCount = reportingTasks.length;
-    const reportingDoneCount = reportingTasks.filter((task) => task.status === "Done").length;
-    const reportingTodoCount = reportingTasks.filter((task) => task.status === "Todo").length;
-    const reportingInProgressCount = reportingTasks.filter((task) => task.status === "In Progress").length;
-    const reportingDueRiskCount = reportingTasks.filter((task) => {
-        const dueState = getDueState(task);
-        return dueState === "overdue" || dueState === "soon";
-    }).length;
-    const reportingCompletionRate =
-        reportingTotalCount > 0 ? Math.round((reportingDoneCount / reportingTotalCount) * 100) : 0;
-    const projectReports = projects.map((project) => {
-        const projectTasks = reportingTasks.filter((task) => task.projectId === project.id);
-        const doneCount = projectTasks.filter((task) => task.status === "Done").length;
-        const dueRiskCount = projectTasks.filter((task) => {
-            const dueState = getDueState(task);
-            return dueState === "overdue" || dueState === "soon";
-        }).length;
-        const completionRate = projectTasks.length > 0 ? Math.round((doneCount / projectTasks.length) * 100) : 0;
-
-        return {
-            ...project,
-            taskCount: projectTasks.length,
-            todoCount: projectTasks.filter((task) => task.status === "Todo").length,
-            inProgressCount: projectTasks.filter((task) => task.status === "In Progress").length,
-            doneCount,
-            dueRiskCount,
-            completionRate,
-        };
-    });
-    const topProjectReports = [...projectReports]
-        .sort((first, second) => second.taskCount - first.taskCount || second.completionRate - first.completionRate)
-        .slice(0, 5);
-    const hasNoSpaces = !loading && !loadError && spaces.length === 0;
-    const hasNoProjects = !loading && !loadError && spaces.length > 0 && projects.length === 0;
-    const showSearchEmpty = !loading && !loadError && isSearching && visibleTasks.length === 0;
-    const showBoardEmpty =
-        !loading &&
-        !loadError &&
-        !isSearching &&
-        viewMode !== "inbox" &&
-        viewMode !== "reporting" &&
-        projects.length > 0 &&
-        visibleTasks.length === 0;
 
     const requireAuth = (action: () => void) => {
         if (!user) {
