@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { DragEvent, FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -9,6 +9,7 @@ import MembersModal from "../features/workspace/components/MembersModal";
 import ProjectFormModal from "../features/workspace/components/ProjectFormModal";
 import ReportingView from "../features/workspace/components/ReportingView";
 import SpaceFormModal from "../features/workspace/components/SpaceFormModal";
+import useWorkspaceData from "../features/workspace/hooks/useWorkspaceData";
 import useWorkspaceView from "../features/workspace/hooks/useWorkspaceView";
 import TaskFormModal from "../features/workspace/components/TaskFormModal";
 import UiIcon from "../features/workspace/components/UiIcon";
@@ -26,15 +27,13 @@ export default function Home({ user, onLogout }: Props) {
     const nav = useNavigate();
     const location = useLocation();
 
-    const [spaces, setSpaces] = useState<Space[]>([]);
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [activeSpaceId, setActiveSpaceId] = useState<number | null>(null);
-    const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+    const {
+        spaces, setSpaces, projects, setProjects, tasks, setTasks, spaceMembers, setSpaceMembers,
+        activeSpaceId, setActiveSpaceId, activeProjectId, setActiveProjectId,
+        loading, loadError, membersLoading, setMembersLoading, membersError, setMembersError,
+    } = useWorkspaceData(user);
     const [viewMode, setViewMode] = useState<ViewMode>("home");
     const [query, setQuery] = useState("");
-    const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState<string | null>(null);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -67,134 +66,10 @@ export default function Home({ user, onLogout }: Props) {
     const [spaceDeleteError, setSpaceDeleteError] = useState<string | null>(null);
     const [deletingSpaceId, setDeletingSpaceId] = useState<number | null>(null);
     const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
-    const [spaceMembers, setSpaceMembers] = useState<SpaceMember[]>([]);
-    const [membersLoading, setMembersLoading] = useState(false);
-    const [membersError, setMembersError] = useState<string | null>(null);
     const [memberForm, setMemberForm] = useState<MemberForm>(emptyMemberForm());
     const [isAddingMember, setIsAddingMember] = useState(false);
     const [updatingMemberId, setUpdatingMemberId] = useState<number | null>(null);
     const [removingMemberId, setRemovingMemberId] = useState<number | null>(null);
-
-    useEffect(() => {
-        const loadSpaces = async () => {
-            if (!user) {
-                setSpaces([]);
-                setProjects([]);
-                setTasks([]);
-                setActiveSpaceId(null);
-                setActiveProjectId(null);
-                setLoading(false);
-                setLoadError(null);
-                return;
-            }
-
-            setLoading(true);
-            setLoadError(null);
-
-            try {
-                const token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
-                const spacesResponse = await fetch(`${API_BASE_URL}/spaces`, {
-                    headers: {
-                        Authorization: `Bearer ${token ?? ""}`,
-                    },
-                });
-
-                if (!spacesResponse.ok) {
-                    throw new Error("스페이스를 불러오지 못했습니다.");
-                }
-
-                const spacesData = ((await spacesResponse.json()) as ApiSpace[]).map(mapSpace);
-
-                setSpaces(spacesData);
-                setActiveSpaceId((current) => current ?? spacesData[0]?.id ?? null);
-                if (spacesData.length === 0) {
-                    setProjects([]);
-                    setTasks([]);
-                    setLoading(false);
-                }
-            } catch (error) {
-                console.error(error);
-                setLoadError("백엔드에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.");
-                setLoading(false);
-            }
-        };
-
-        void loadSpaces();
-    }, [user]);
-
-    useEffect(() => {
-        if (activeSpaceId === null) {
-            setSpaceMembers([]);
-            return;
-        }
-
-        setSpaceMembers([]);
-
-        const loadCurrentSpaceMembers = async () => {
-            setMembersError(null);
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/spaces/${activeSpaceId}/members`, {
-                    headers: {
-                        Authorization: `Bearer ${window.localStorage.getItem(ACCESS_TOKEN_KEY) ?? ""}`,
-                    },
-                });
-                if (!response.ok) {
-                    throw new Error("멤버 목록을 불러오지 못했습니다.");
-                }
-
-                const membersData = ((await response.json()) as ApiSpaceMember[]).map(mapSpaceMember);
-                setSpaceMembers(membersData);
-            } catch (error) {
-                console.error(error);
-                setSpaceMembers([]);
-                setMembersError("멤버 목록을 불러올 수 없습니다. 백엔드 서버를 확인하고 다시 시도해주세요.");
-            }
-        };
-
-        const loadBoard = async () => {
-            setLoading(true);
-            setLoadError(null);
-
-            try {
-                const [projectsResponse, tasksResponse] = await Promise.all([
-                    fetch(`${API_BASE_URL}/projects?space_id=${activeSpaceId}`, {
-                        headers: {
-                            Authorization: `Bearer ${window.localStorage.getItem(ACCESS_TOKEN_KEY) ?? ""}`,
-                        },
-                    }),
-                    fetch(`${API_BASE_URL}/tasks?space_id=${activeSpaceId}`, {
-                        headers: {
-                            Authorization: `Bearer ${window.localStorage.getItem(ACCESS_TOKEN_KEY) ?? ""}`,
-                        },
-                    }),
-                ]);
-
-                if (!projectsResponse.ok || !tasksResponse.ok) {
-                    throw new Error("보드 데이터를 불러오지 못했습니다.");
-                }
-
-                const projectsData = ((await projectsResponse.json()) as ApiProject[]).map(mapProject);
-                const tasksData = (await tasksResponse.json()) as ApiTask[];
-
-                setProjects(projectsData);
-                setTasks(tasksData.map(mapTask));
-                setActiveProjectId((current) =>
-                    current !== null && projectsData.some((project) => project.id === current)
-                        ? current
-                        : projectsData[0]?.id ?? null,
-                );
-            } catch (error) {
-                console.error(error);
-                setLoadError("백엔드에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        void loadCurrentSpaceMembers();
-        void loadBoard();
-    }, [activeSpaceId]);
 
     const {
         activeSpace, activeProject, currentSpaceRoleLabel,
